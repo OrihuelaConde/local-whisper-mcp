@@ -1,0 +1,65 @@
+# Proof of concept, step 8: publishes the MCP server with Native AOT on Linux and macOS and runs
+# a short CPU transcription through the MCP protocol. It runs only on demand, so it doesn't spend
+# Actions minutes on every push.
+name: poc-native-aot
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish-and-transcribe:
+    name: ${{ matrix.rid }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            rid: linux-x64
+          - os: ubuntu-24.04-arm
+            rid: linux-arm64
+          - os: macos-15
+            rid: osx-arm64
+          - os: macos-15-intel
+            rid: osx-x64
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Install Native AOT prerequisites
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
+
+      - name: Publish with Native AOT
+        run: dotnet publish poc/AotMcp -c Release -r ${{ matrix.rid }} -o out 2>&1 | tee publish.log
+
+      - name: Report trim and AOT warnings
+        run: grep -oE "warning IL[23][0-9]{3}: [^[]*" publish.log | sort -u || echo "No IL warnings."
+
+      - name: Download the test model and audio
+        run: |
+          mkdir -p models audio
+          curl -fsSL -o models/ggml-tiny.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin
+          curl -fsSL -o audio/jfk.wav https://raw.githubusercontent.com/ggml-org/whisper.cpp/master/samples/jfk.wav
+
+      - name: Transcribe through the MCP server
+        env:
+          LOCAL_WHISPER_MODELS_DIR: ${{ github.workspace }}/models
+          LOCAL_WHISPER_MODEL: tiny
+          LOCAL_WHISPER_RUNTIME: cpu
+          LOCAL_WHISPER_ALLOWED_ROOTS: ${{ github.workspace }}
+        run: |
+          printf '[{"name":"status"},{"name":"transcribe","arguments":{"path":"%s","language":"en","vad":false}}]' \
+            "$GITHUB_WORKSPACE/audio/jfk.wav" > calls.json
+          python3 poc/scripts/mcp_smoke.py out/AotMcp calls.json "ask not what your country can do for you"
+
+      - name: Report the output size
+        run: |
+          du -sh out
+          ls -la out
