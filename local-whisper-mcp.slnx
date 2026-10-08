@@ -1,4 +1,10 @@
 <Solution>
+  <Folder Name="/src/">
+    <Project Path="src/LocalWhisperMcp/LocalWhisperMcp.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/LocalWhisperMcp.Tests/LocalWhisperMcp.Tests.csproj" />
+  </Folder>
   <Folder Name="/poc/">
     <Project Path="poc/AotMcp/AotMcp.csproj" />
     <Project Path="poc/AotWhisper/AotWhisper.csproj" />
