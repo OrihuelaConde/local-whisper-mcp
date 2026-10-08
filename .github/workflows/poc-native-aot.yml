@@ -40,7 +40,8 @@ jobs:
         run: dotnet publish poc/AotMcp -c Release -r ${{ matrix.rid }} -o out 2>&1 | tee publish.log
 
       - name: Report trim and AOT warnings
-        run: grep -oE "warning IL[23][0-9]{3}: [^[]*" publish.log | sort -u || echo "No IL warnings."
+        run: |
+          grep -oE "warning IL[23][0-9]{3}: [^[]*" publish.log | sort -u || echo "No IL warnings."
 
       - name: Download the test model and audio
         run: |

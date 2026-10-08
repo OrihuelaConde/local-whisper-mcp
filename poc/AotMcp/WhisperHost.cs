@@ -27,7 +27,10 @@ public sealed record WhisperSettings(
     public static WhisperSettings FromEnvironment()
     {
         var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        var dataDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "local-whisper-mcp", "models");
+
+        // Not LocalApplicationData: on Windows, MSIX-packaged clients such as Claude Desktop see a
+        // virtualized AppData, so models stored there by other processes are invisible to the server.
+        var dataDirectory = Path.Combine(home, ".local-whisper-mcp", "models");
         var roots = Get("LOCAL_WHISPER_ALLOWED_ROOTS", home)
             .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Select(Path.GetFullPath)
@@ -35,7 +38,7 @@ public sealed record WhisperSettings(
 
         return new WhisperSettings(
             Get("LOCAL_WHISPER_MODELS_DIR", dataDirectory),
-            Get("LOCAL_WHISPER_MODEL", "base"),
+            Get("LOCAL_WHISPER_MODEL", "large-v3-turbo-q8_0"),
             Get("LOCAL_WHISPER_LANGUAGE", "auto"),
             Get("LOCAL_WHISPER_RUNTIME", "auto").ToLowerInvariant(),
             TimeSpan.FromMinutes(double.Parse(Get("LOCAL_WHISPER_IDLE_MINUTES", "10"), CultureInfo.InvariantCulture)),
@@ -116,7 +119,8 @@ public sealed class WhisperHost : IDisposable
             ? null
             : Math.Max(0, (Settings.IdleTimeout - (DateTimeOffset.UtcNow - lastUse)).TotalSeconds);
         return new HostStatus(
-            Transcriber.LoadedRuntime,
+            loaded is null ? null : Transcriber.LoadedRuntime,
+            Transcriber.GetInstalledRuntimes(),
             loaded is null ? null : Path.GetFileName(loaded.ModelPath),
             secondsUntilRelease,
             Settings.DefaultModel,
@@ -161,14 +165,16 @@ public sealed class WhisperHost : IDisposable
 }
 
 /// <summary>Describes the state of the server.</summary>
-/// <param name="Device">The native runtime in use, such as <c>Cpu</c> or <c>Vulkan</c>, or <c>none</c> before the first load.</param>
+/// <param name="Device">The native runtime in use, such as <c>Cpu</c> or <c>Vulkan</c>, or <see langword="null"/> while no model is loaded.</param>
+/// <param name="AvailableRuntimes">The installed runtimes in the order the server tries them; the first one that loads becomes <paramref name="Device"/>.</param>
 /// <param name="LoadedModel">The file name of the loaded model, or <see langword="null"/> if no model is loaded.</param>
 /// <param name="SecondsUntilRelease">The seconds left before the idle model is released, or <see langword="null"/> if no model is loaded.</param>
 /// <param name="DefaultModel">The model that calls use when they don't specify one.</param>
 /// <param name="RuntimeIdentifier">The runtime identifier (RID) of the server process.</param>
 /// <param name="NativeAot"><see langword="true"/> when the server runs as Native AOT code.</param>
 public sealed record HostStatus(
-    string Device,
+    string? Device,
+    IReadOnlyList<string> AvailableRuntimes,
     string? LoadedModel,
     double? SecondsUntilRelease,
     string DefaultModel,

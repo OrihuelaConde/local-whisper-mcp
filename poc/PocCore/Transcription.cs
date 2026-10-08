@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -36,6 +37,23 @@ public sealed class Transcriber : IDisposable
     /// <summary>Gets the native runtime that Whisper.net loaded, such as CPU or Vulkan.</summary>
     public static string LoadedRuntime => RuntimeOptions.LoadedLibrary?.ToString() ?? "none";
 
+    /// <summary>Lists the native runtimes installed next to the executable, in the order Whisper.net tries them.</summary>
+    /// <returns>The runtime names, such as <c>Vulkan</c> and <c>Cpu</c>.</returns>
+    public static IReadOnlyList<string> GetInstalledRuntimes()
+    {
+        var platform = OperatingSystem.IsWindows() ? "win" : OperatingSystem.IsMacOS() ? "macos" : "linux";
+        var target = $"{platform}-{RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant()}";
+        var runtimes = Path.Combine(AppContext.BaseDirectory, "runtimes");
+        return [.. RuntimeOptions.RuntimeLibraryOrder
+            .Where(library => Directory.Exists(library switch
+            {
+                RuntimeLibrary.Cpu => Path.Combine(runtimes, target),
+                RuntimeLibrary.CpuNoAvx => Path.Combine(runtimes, "noavx", target),
+                _ => Path.Combine(runtimes, library.ToString().ToLowerInvariant(), target),
+            }))
+            .Select(library => library.ToString())];
+    }
+
     /// <summary>Selects the native runtimes that Whisper.net may load, in order of preference.</summary>
     /// <param name="runtime">One of <c>auto</c>, <c>cpu</c>, <c>vulkan</c>, or <c>cuda</c>.</param>
     /// <remarks>Only takes effect before the first model loads.</remarks>
@@ -65,24 +83,62 @@ public sealed class Transcriber : IDisposable
     {
         var duration = TimeSpan.FromSeconds(samples.Length / (double)AudioLoader.SampleRate);
         var spans = vadModelPath is null ? [new SpeechSpan(TimeSpan.Zero, duration)] : DetectSpeech(samples, vadModelPath);
+        if (spans.Length == 0)
+        {
+            return new TranscriptionResult([], spans, duration);
+        }
 
         using var processor = factory.CreateBuilder()
             .WithLanguage(language)
             .WithThreads(threads)
             .Build();
 
-        var segments = new List<TranscriptSegment>();
+        // Whisper encodes audio in 30-second windows, so transcribing each span on its own costs a
+        // full window per span. Joining the spans, with a short silence between them as whisper.cpp
+        // does, keeps the cost proportional to the speech; timestamps are then mapped back.
+        var gap = AudioLoader.SampleRate / 10;
+        var pieces = new List<(int JoinedStart, int SourceStart, int Length)>();
+        var joined = new List<float>(samples.Length);
         foreach (var span in spans)
         {
             var first = (int)Math.Min(samples.Length, span.Start.TotalSeconds * AudioLoader.SampleRate);
             var last = (int)Math.Min(samples.Length, span.End.TotalSeconds * AudioLoader.SampleRate);
-            await foreach (var result in processor.ProcessAsync(samples.AsMemory(first, last - first), cancellationToken))
+            pieces.Add((joined.Count, first, last - first));
+            joined.AddRange(samples.AsSpan(first, last - first));
+            joined.AddRange(new float[gap]);
+        }
+
+        var segments = new List<TranscriptSegment>();
+        await foreach (var result in processor.ProcessAsync(joined.ToArray(), cancellationToken))
+        {
+            var start = ToIndex(result.Start);
+            var end = ToIndex(result.End);
+            var startPiece = PieceAt(start);
+
+            // Smaller models often start a segment right where the previous one ended, inside the
+            // tail of the previous span. A segment that starts in that tail and ends in a later span
+            // belongs to the later span.
+            var tail = AudioLoader.SampleRate / 2;
+            if (PieceAt(end) > startPiece && start >= pieces[startPiece].JoinedStart + pieces[startPiece].Length + gap - tail)
             {
-                segments.Add(new TranscriptSegment(span.Start + result.Start, span.Start + result.End, result.Text.Trim(), result.Language));
+                start = pieces[++startPiece].JoinedStart;
             }
+
+            segments.Add(new TranscriptSegment(ToSource(start), ToSource(end), result.Text.Trim(), result.Language));
         }
 
         return new TranscriptionResult(segments, spans, duration);
+
+        static int ToIndex(TimeSpan time) => (int)(time.TotalSeconds * AudioLoader.SampleRate);
+
+        int PieceAt(int index) => Math.Max(0, pieces.FindLastIndex(p => p.JoinedStart <= index));
+
+        TimeSpan ToSource(int index)
+        {
+            var piece = pieces[PieceAt(index)];
+            var offset = Math.Clamp(index - piece.JoinedStart, 0, piece.Length);
+            return TimeSpan.FromSeconds((piece.SourceStart + offset) / (double)AudioLoader.SampleRate);
+        }
     }
 
     /// <inheritdoc/>

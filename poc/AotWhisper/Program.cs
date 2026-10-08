@@ -4,6 +4,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using PocCore;
 using Whisper.net;
+using Whisper.net.Logger;
 
 // Transcribes one audio file and reports timing and memory on stderr, so stdout carries only
 // the transcript.
@@ -15,6 +16,10 @@ if (options is null)
 }
 
 Transcriber.ConfigureRuntime(options.Runtime);
+if (options.Verbose)
+{
+    LogProvider.AddLogger((level, message) => Console.Error.Write($"[whisper {level}] {message}"));
+}
 
 var total = Stopwatch.StartNew();
 Metrics.Log($"decoder: {AudioLoader.GetDecoderName(options.Audio)}");
@@ -65,12 +70,13 @@ internal sealed record CliOptions(
     string? VadModel,
     int Threads,
     string Format,
-    string? Dump)
+    string? Dump,
+    bool Verbose)
 {
     /// <summary>Gets the usage text.</summary>
     public const string Usage =
         "Usage: AotWhisper --audio AUDIO (--model MODEL | --dump OUTPUT_WAV) [--runtime auto|cpu|vulkan|cuda] "
-        + "[--language auto|LANG] [--vad VAD_MODEL] [--threads N] [--format txt|srt|json]";
+        + "[--language auto|LANG] [--vad VAD_MODEL] [--threads N] [--format txt|srt|json] [--verbose true]";
 
     /// <summary>Parses the command-line arguments.</summary>
     /// <param name="args">The raw arguments.</param>
@@ -97,7 +103,8 @@ internal sealed record CliOptions(
             values.GetValueOrDefault("vad"),
             int.Parse(values.GetValueOrDefault("threads", Math.Min(Environment.ProcessorCount, 8).ToString(CultureInfo.InvariantCulture)), CultureInfo.InvariantCulture),
             values.GetValueOrDefault("format", "txt").ToLowerInvariant(),
-            dump);
+            dump,
+            bool.Parse(values.GetValueOrDefault("verbose", "false")));
     }
 }
 

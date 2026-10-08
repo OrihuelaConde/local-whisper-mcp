@@ -489,3 +489,5 @@ models/
 ggml-*.bin
 # Proof-of-concept measurement output.
 poc/results/raw/
+# Packed extensions and their staging folder.
+poc/mcpb/out/
