@@ -12,7 +12,7 @@ plan.
 | 2 | Transcribe a 16 kHz mono WAV under AOT on the CPU runtime | Pending | The native library loads under AOT after the x86-64-v3 fix (see [Findings](#findings)). Waiting for a model. |
 | 3 | Same as 2 with the CUDA runtime | Pending | The driver supports CUDA 13.4, but the CUDA Toolkit isn't installed. |
 | 4 | Same as 2 with `Whisper.net.Runtime.Vulkan`, without the Vulkan SDK | Pending | Waiting for a model. |
-| 5 | Decode Ogg Opus with Concentus, without ffmpeg, and transcribe it | Decode: go | Concentus output matches ffmpeg/libopus (correlation 0.9934 for both against the source). NLayer matches ffmpeg for MP3 (0.9997). No AOT warnings from either library. Transcription pending. |
+| 5 | Decode Ogg Opus with Concentus, without ffmpeg, and transcribe it | Decode: go | Two real WhatsApp voice notes (4 s and 24 s, SILK wideband, 120 ms packets) and a synthetic Opus file decode under AOT with the same sample count as ffmpeg/libopus and no timestamp offset (correlation 0.995 to 1.000 against the libopus output). This required working around two Concentus bugs (see [Findings](#findings)). NLayer matches ffmpeg for MP3 (0.9997). Transcription pending. |
 | 6 | Silero VAD on audio with long pauses | Pending | Implemented: speech spans from `WhisperVadFactory` are transcribed one by one. |
 | 7 | Time per audio minute, RAM, and VRAM for `large-v3-turbo` full, q5_0, and q8_0 | Pending | |
 | 8 | Native AOT publish and a short CPU transcription on Linux and macOS | Pending | The `poc-native-aot` workflow runs on demand only. |
@@ -38,9 +38,19 @@ plan.
   `linux-x64`, `linux-arm64`, `linux-arm`, `osx-x64` (as `macos-x64`), and `osx-arm64`.
 - **Publish size.** The publish output copies native binaries for every platform. The Vulkan
   backend alone is 58 MB per platform. A release build must keep only the target RID.
-- **Opus pre-skip and MP3 delay.** `Concentus.OggFile` doesn't drop the Opus pre-skip (6.5 ms at
-  16 kHz) and NLayer doesn't drop the encoder delay (69 ms in the test file). Both shift timestamps
-  slightly; the final decoder should trim them.
+- **Concentus.OggFile hangs on WhatsApp voice notes.** WhatsApp ends its Ogg streams without the
+  end-of-stream flag. On the 24-second note, `OpusOggReadStream.HasNextPacket` never turns `false`,
+  so the JIT build loops forever and the AOT build crashes. The proof of concept replaces it with a
+  small Ogg demuxer (`OggReader`) and drops the package.
+- **Concentus fails on zero-length Opus frames.** WhatsApp uses discontinuous transmission (DTX):
+  during silence, a 120 ms packet carries six 20 ms SILK frames and some of them are empty.
+  Concentus 2.2.2 throws `OpusException` for any packet with an empty frame (9 of 199 packets in
+  the 24-second note). The proof of concept splits each packet into frames (`OpusPacket`), decodes
+  each frame as a single-frame packet, and runs packet loss concealment for empty frames, which is
+  what libopus does.
+- **Opus pre-skip and MP3 delay.** The Ogg reader drops the Opus pre-skip and trims the end to the
+  last granule position, so the output lines up with ffmpeg sample for sample. NLayer still doesn't
+  drop the MP3 encoder delay (69 ms in the test file); the final decoder should trim it.
 - **Claude Desktop extensions.** The LinkedIn server that appears in cloud sessions is an MCP Bundle
   (`.mcpb`) with server type `uv`, which means Claude Desktop manages its Python environment. MCPB
   also supports the `binary` server type, which fits a per-platform AOT executable.

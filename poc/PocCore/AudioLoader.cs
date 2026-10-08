@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using Concentus;
-using Concentus.Oggfile;
 using NLayer;
 using Whisper.net.Wave;
 
@@ -42,25 +41,60 @@ public static class AudioLoader
         OpusCodecFactory.AttemptToUseNativeLibrary = false;
 
         // Opus decodes natively at 16 kHz and downmixes to mono, so no resampling is needed.
+        // Ogg granule positions and the pre-skip always count 48 kHz samples.
+        const int GranuleRatio = 48000 / SampleRate;
         using var stream = File.OpenRead(path);
         var decoder = OpusCodecFactory.CreateDecoder(SampleRate, 1);
-        var reader = new OpusOggReadStream(decoder, stream);
+        var frame = new float[SampleRate * 120 / 1000];
         var samples = new List<float>();
-        while (reader.HasNextPacket)
+        var preSkip = 0;
+        var packetIndex = 0;
+        var single = new byte[1276];
+        long lastGranule = 0;
+        foreach (var (packet, granule) in OggReader.ReadPackets(stream))
         {
-            var packet = reader.DecodeNextPacket();
-            if (packet is null)
+            lastGranule = granule;
+            switch (packetIndex++)
             {
-                continue;
+                case 0:
+                    if (!packet.AsSpan().StartsWith("OpusHead"u8))
+                    {
+                        throw new InvalidDataException("The Ogg stream doesn't contain Opus audio.");
+                    }
+
+                    preSkip = BitConverter.ToUInt16(packet, 10);
+                    continue;
+                case 1:
+                    // OpusTags carries only metadata.
+                    continue;
             }
 
-            foreach (var sample in packet)
+            // Concentus rejects packets that contain zero-length frames, which WhatsApp sends for
+            // silence (DTX). Each frame is decoded as its own single-frame packet instead, and an
+            // empty frame becomes packet loss concealment, as libopus does.
+            var frameSamples = OpusPacket.GetFrameSamples(packet[0], SampleRate);
+            foreach (var (offset, frameLength) in OpusPacket.SplitFrames(packet))
             {
-                samples.Add(sample / 32768f);
+                int decoded;
+                if (frameLength == 0)
+                {
+                    decoded = decoder.Decode(ReadOnlySpan<byte>.Empty, frame, frameSamples);
+                }
+                else
+                {
+                    single[0] = (byte)(packet[0] & 0xFC);
+                    packet.AsSpan(offset, frameLength).CopyTo(single.AsSpan(1));
+                    decoded = decoder.Decode(single.AsSpan(0, frameLength + 1), frame, frame.Length);
+                }
+
+                samples.AddRange(frame.AsSpan(0, decoded));
             }
         }
 
-        return [.. samples];
+        // Drop the encoder delay at the start and the padding after the last granule position.
+        var first = Math.Min(samples.Count, preSkip / GranuleRatio);
+        var length = (int)Math.Clamp((lastGranule - preSkip) / GranuleRatio, 0, samples.Count - first);
+        return [.. samples.GetRange(first, length)];
     }
 
     private static float[] LoadMp3(string path)
