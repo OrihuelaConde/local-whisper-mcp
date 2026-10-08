@@ -35,9 +35,9 @@
     "model": {
       "type": "string",
       "title": "Model",
-      "description": "Model name in the models folder, for example large-v3-turbo-q5_0 or base.",
+      "description": "Model name in the models folder, for example large-v3-turbo-q8_0 or base.",
       "required": false,
-      "default": "large-v3-turbo-q5_0"
+      "default": "large-v3-turbo-q8_0"
     },
     "language": {
       "type": "string",

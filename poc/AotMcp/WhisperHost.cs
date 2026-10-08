@@ -38,7 +38,7 @@ public sealed record WhisperSettings(
 
         return new WhisperSettings(
             Get("LOCAL_WHISPER_MODELS_DIR", dataDirectory),
-            Get("LOCAL_WHISPER_MODEL", "base"),
+            Get("LOCAL_WHISPER_MODEL", "large-v3-turbo-q8_0"),
             Get("LOCAL_WHISPER_LANGUAGE", "auto"),
             Get("LOCAL_WHISPER_RUNTIME", "auto").ToLowerInvariant(),
             TimeSpan.FromMinutes(double.Parse(Get("LOCAL_WHISPER_IDLE_MINUTES", "10"), CultureInfo.InvariantCulture)),
