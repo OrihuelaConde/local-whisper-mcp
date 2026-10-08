@@ -104,7 +104,9 @@ call reloaded the model in 0.8 s.
   convention. Claude Desktop's own tool descriptions say that folder access and delete permission
   last only for the session, and that the session's connected folders and a local MCP server's
   folder settings don't grant each other. `device_bash` blocks `rm` until the user approves
-  `device_request_delete_permission`, so the session can't clean up without a second prompt.
+  `device_request_delete_permission`, so the session can't clean up without a second prompt. The
+  server in `src/` therefore has an inbox, `~/.local-whisper-mcp/inbox`: it always reads it,
+  reports it in `status`, and deletes each file there after transcribing it.
 - **Unlinked web sessions.** A claude.ai session in the browser that isn't linked to the PC has no
   `mcp__remote-devices__*` tools. Asked to use Local Whisper, it tried to transcribe in its cloud
   container with faster-whisper instead, which the proxy blocked. The skill must rule that out.
