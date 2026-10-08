@@ -1,0 +1,82 @@
+# Runs the unit tests, publishes the server with Native AOT for each desktop RID, and transcribes a
+# sample through the MCP protocol with the published executable. The runners have no GPU, so the
+# default runtime order also checks that GPU runtimes fall back to the CPU.
+# It runs only on demand for now.
+name: build
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: ${{ matrix.rid }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2025
+            rid: win-x64
+          - os: ubuntu-24.04
+            rid: linux-x64
+          - os: ubuntu-24.04-arm
+            rid: linux-arm64
+          - os: macos-15
+            rid: osx-arm64
+          - os: macos-15-intel
+            rid: osx-x64
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Install Native AOT prerequisites
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
+
+      - name: Run the unit tests
+        run: dotnet test --project tests/LocalWhisperMcp.Tests
+
+      - name: Publish with Native AOT
+        run: |
+          if ($IsWindows) { $env:PATH = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer;$env:PATH" }
+          dotnet publish src/LocalWhisperMcp -c Release -r ${{ matrix.rid }} -o out 2>&1 | Tee-Object publish.log
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          Select-String -Path publish.log -Pattern 'warning IL[23]\d{3}' | ForEach-Object Line | Sort-Object -Unique
+
+      - name: Download the test model with the server
+        env:
+          LOCAL_WHISPER_MODELS_DIR: ${{ github.workspace }}/models
+        run: |
+          ./out/local-whisper-mcp download tiny
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Transcribe through the MCP server
+        env:
+          LOCAL_WHISPER_MODELS_DIR: ${{ github.workspace }}/models
+          LOCAL_WHISPER_MODEL: tiny
+          LOCAL_WHISPER_AUTO_DOWNLOAD: "false"
+          LOCAL_WHISPER_ALLOWED_ROOTS: ${{ github.workspace }}/audio
+        run: |
+          New-Item -ItemType Directory -Force audio | Out-Null
+          Invoke-WebRequest https://raw.githubusercontent.com/ggml-org/whisper.cpp/master/samples/jfk.wav -OutFile audio/jfk.wav
+          $server = Resolve-Path (Join-Path out ($IsWindows ? 'local-whisper-mcp.exe' : 'local-whisper-mcp'))
+          @(
+            @{ name = 'status' }
+            @{ name = 'transcribe'; arguments = @{ path = (Resolve-Path audio/jfk.wav).Path; language = 'en' } }
+            @{ name = 'status' }
+          ) | ConvertTo-Json -Depth 5 | Set-Content calls.json
+          & ($IsWindows ? 'python' : 'python3') scripts/mcp_smoke.py $server calls.json "ask not what your country can do for you"
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Report the output size
+        run: |
+          Get-ChildItem out -Recurse -File | Select-Object @{ n = 'File'; e = { [IO.Path]::GetRelativePath('out', $_.FullName) } }, Length | Format-Table -AutoSize

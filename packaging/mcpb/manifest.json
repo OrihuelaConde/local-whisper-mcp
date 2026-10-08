@@ -1,0 +1,74 @@
+{
+  "manifest_version": "0.3",
+  "name": "local-whisper-mcp",
+  "display_name": "Local Whisper",
+  "version": "0.1.0",
+  "description": "Transcribes audio files on your computer with Whisper, for Claude. The audio never leaves the machine.",
+  "author": {
+    "name": "José Luis Orihuela Conde",
+    "url": "https://github.com/OrihuelaConde"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/OrihuelaConde/local-whisper-mcp"
+  },
+  "homepage": "https://github.com/OrihuelaConde/local-whisper-mcp",
+  "keywords": ["whisper", "transcription", "speech-to-text", "audio", "voice notes", "local", "offline"],
+  "server": {
+    "type": "binary",
+    "entry_point": "server/local-whisper-mcp.exe",
+    "mcp_config": {
+      "command": "${__dirname}/server/local-whisper-mcp.exe",
+      "args": [],
+      "env": {
+        "LOCAL_WHISPER_MODEL": "${user_config.model}",
+        "LOCAL_WHISPER_LANGUAGE": "${user_config.language}",
+        "LOCAL_WHISPER_RUNTIME": "${user_config.runtime}",
+        "LOCAL_WHISPER_IDLE_MINUTES": "${user_config.idle_minutes}"
+      }
+    }
+  },
+  "tools": [
+    {
+      "name": "transcribe",
+      "description": "Transcribes an audio file on this computer with Whisper."
+    },
+    {
+      "name": "status",
+      "description": "Reports the device, the models, model downloads, and the folders the server may read."
+    }
+  ],
+  "user_config": {
+    "model": {
+      "type": "string",
+      "title": "Model",
+      "description": "Whisper model, such as large-v3-turbo-q8_0 or base. The server downloads it to ~/.local-whisper-mcp/models on first use.",
+      "required": false,
+      "default": "large-v3-turbo-q8_0"
+    },
+    "language": {
+      "type": "string",
+      "title": "Default language",
+      "description": "Language code, such as en or es, or auto to detect it.",
+      "required": false,
+      "default": "auto"
+    },
+    "runtime": {
+      "type": "string",
+      "title": "Runtime",
+      "description": "auto, cpu, or vulkan. A GPU runtime that can't load falls back to the CPU.",
+      "required": false,
+      "default": "auto"
+    },
+    "idle_minutes": {
+      "type": "string",
+      "title": "Idle minutes",
+      "description": "Minutes without calls before the model is released from memory, including GPU memory.",
+      "required": false,
+      "default": "10"
+    }
+  },
+  "compatibility": {
+    "platforms": ["win32"]
+  }
+}
