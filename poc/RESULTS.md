@@ -16,7 +16,7 @@ plan.
 | 6 | Silero VAD on audio with long pauses | Go | On a synthetic note with 25 s of silence and 30 s of noise, no model invents text, but without VAD timestamps snap to 30-second windows and land 4.1 s and 11.9 s early. With VAD, segments start within 0.2 s of the measured speech onsets (34.11 s and 71.92 s). Joining the speech spans before transcribing makes VAD cheaper, not costlier: `base` on CPU takes 0.8 s with VAD against 1.6 s without it. Hallucinations in real, noisy silence still need a real recording. |
 | 7 | Time per audio minute, RAM, and VRAM for `large-v3-turbo` full, q5_0, and q8_0 | Go | See [Measurements](#measurements). On the RTX 3080 with Vulkan, q8_0 is the best trade-off: 0.95 s per audio minute and 1.3 GiB of VRAM. On the CPU every variant takes 27 to 34 s per audio minute. |
 | 8 | Native AOT publish and a short CPU transcription on Linux and macOS | Pending | The `poc-native-aot` workflow runs on demand only. |
-| 9 | Local MCP visible in claude.ai cloud sessions as `mcp__remote-devices__<server>__<tool>` | Pending | The reference LinkedIn server is a Claude Desktop extension (MCPB, manifest 0.4). `poc/mcpb/pack.ps1` builds a 24 MB `binary` extension of this server for `win-x64`; it still needs to be installed and called from Claude Desktop and from a cloud session. |
+| 9 | Local MCP visible in claude.ai cloud sessions as `mcp__remote-devices__<server>__<tool>` | Go | With the `.mcpb` extension installed in Claude Desktop, a Cowork session in the cloud copied an attached WhatsApp note to the PC, called `transcribe` with its absolute path, and returned the same transcript as the local tests. The exact tool name in the cloud session wasn't checked. See [Findings](#findings) for the folder prompt and the leftover copy. |
 
 ## Measurements
 
@@ -71,14 +71,23 @@ call reloaded the model in 0.8 s.
 - **Opus pre-skip and MP3 delay.** The Ogg reader drops the Opus pre-skip and trims the end to the
   last granule position, so the output lines up with ffmpeg sample for sample. NLayer still doesn't
   drop the MP3 encoder delay (69 ms in the test file); the final decoder should trim it.
-- **MSIX clients may not see `%LOCALAPPDATA%`.** The Python install manager is an MSIX package,
-  and processes it starts inherit a virtualized view of `AppData`: Python's `os.path.exists`
-  returned `False` for models that another process had saved under
-  `%LOCALAPPDATA%\local-whisper-mcp\models`, and whisper.cpp launched from Python failed to open
-  them. Claude Desktop (`Claude_pzs8sxrjxfjjc`) is also an MSIX package, so the server it starts
-  likely gets the same view; check 9 verifies it. The server therefore defaults to
-  `~/.local-whisper-mcp/models`, the same pattern the LinkedIn extension follows with
-  `~/.linkedin-mcp`.
+- **MSIX packages get private views of `AppData`.** Claude Desktop (`Claude_pzs8sxrjxfjjc`) and the
+  Python install manager are MSIX packages, and the processes they start inherit their package's
+  view of `AppData`. Files that a process under Claude Desktop writes to `%LOCALAPPDATA%` or
+  `%APPDATA%` land in `%LOCALAPPDATA%\Packages\Claude_pzs8sxrjxfjjc\LocalCache`, invisible to
+  processes of other packages: models that curl saved under `%LOCALAPPDATA%\local-whisper-mcp\models`
+  didn't exist for Python, and whisper.cpp launched from Python failed to open them. The server
+  therefore defaults to `~/.local-whisper-mcp/models`, which every client sees; the server that
+  Claude Desktop starts found the models there. The LinkedIn extension uses `~/.linkedin-mcp` for
+  the same reason.
+- **Cloud sessions copy the audio to the PC first.** Before calling `transcribe`, the Cowork
+  session asked the user for access to `~/.local-whisper-mcp` and copied the attachment there as
+  `audio-tmp.ogg`. It had no permission to delete the copy afterwards, so the audio stayed on disk.
+  A dedicated inbox folder, which the server empties after each transcription, would make the
+  prompt a one-time approval and avoid leftover copies.
+- **`status` before the first call.** The session called `status` before transcribing and reported
+  "no GPU assigned" because `device` is `none` until the model loads. `status` should report the
+  runtime the server will try first.
 - **Claude Desktop extensions.** The LinkedIn server that appears in cloud sessions is an MCP Bundle
   (`.mcpb`) with server type `uv`, which means Claude Desktop manages its Python environment. MCPB
   also supports the `binary` server type, which fits a per-platform AOT executable.
