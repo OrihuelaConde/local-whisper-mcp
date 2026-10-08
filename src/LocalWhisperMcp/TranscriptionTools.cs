@@ -29,7 +29,9 @@ internal sealed class TranscriptionTools
     [Description(
         "Transcribes an audio file on this computer with Whisper. The audio never leaves the computer. " +
         "Reads WAV, Ogg Opus (WhatsApp and Telegram voice notes), and MP3; other formats, such as M4A, need ffmpeg. " +
-        "The file must be inside one of the allowed folders that the status tool lists.")]
+        "The file must be in the inbox folder or in one of the allowed folders that the status tool lists. " +
+        "To transcribe a file that isn't on this computer yet, such as a chat attachment, copy it into the inbox: " +
+        "the server deletes files in the inbox after transcribing them, so no copy is left behind.")]
     public static async Task<string> TranscribeAsync(
         WhisperHost host,
         ILogger<TranscriptionTools> logger,
@@ -42,7 +44,7 @@ internal sealed class TranscriptionTools
         CancellationToken cancellationToken = default)
     {
         var settings = host.Settings;
-        var audioPath = AudioPathPolicy.Resolve(path, settings.AllowedRoots);
+        var audioPath = AudioPathPolicy.Resolve(path, settings.ReadableRoots);
 
         format = format.Trim().ToLowerInvariant();
         if (!TranscriptFormatter.Formats.Contains(format))
@@ -87,7 +89,12 @@ internal sealed class TranscriptionTools
                 modelName,
                 NativeRuntime.Device,
                 stopwatch.Elapsed.TotalSeconds);
-            return TranscriptFormatter.Format(result, format);
+            var transcript = TranscriptFormatter.Format(result, format);
+
+            // Only a successful transcription consumes the file; after a failure the client can
+            // retry, and Inbox.Prepare removes what's left after a day.
+            Inbox.DeleteIfInside(audioPath, settings.InboxDirectory, logger);
+            return transcript;
         }
         catch (ArgumentException exception) when (exception.ParamName == "language")
         {
@@ -102,7 +109,7 @@ internal sealed class TranscriptionTools
     [Description(
         "Reports the device that runs Whisper (a GPU or the CPU), " +
         "the loaded, default, and installed models, model downloads in progress, " +
-        "and the allowed folders that transcribe may read audio from.")]
+        "the inbox folder for audio that isn't on this computer yet, and the allowed folders that transcribe may read audio from.")]
     public static HostStatus GetStatus(WhisperHost host) => host.GetStatus();
 
     /// <summary>Accepts a model name with the file name's prefix and extension, as clients sometimes send it.</summary>

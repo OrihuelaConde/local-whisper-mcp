@@ -23,8 +23,19 @@ internal sealed record ServerSettings
     /// <summary>Gets the time without calls after which the model is released.</summary>
     public required TimeSpan IdleTimeout { get; init; }
 
-    /// <summary>Gets the directories that the server may read audio from.</summary>
+    /// <summary>Gets the directories that the server may read audio from, besides the inbox.</summary>
     public required IReadOnlyList<string> AllowedRoots { get; init; }
+
+    /// <summary>Gets the directory where clients drop audio for the server, which deletes each file after transcribing it.</summary>
+    /// <remarks>
+    /// A cloud session can't hand its attachments to the server directly: it copies them to the
+    /// computer first. The inbox gives that copy a fixed place that the server cleans up, because
+    /// the session itself can't delete files without asking the user again.
+    /// </remarks>
+    public required string InboxDirectory { get; init; }
+
+    /// <summary>Gets every directory that the server may read audio from: the allowed roots and the inbox.</summary>
+    public IReadOnlyList<string> ReadableRoots => [.. AllowedRoots, InboxDirectory];
 
     /// <summary>Gets the number of CPU threads to use.</summary>
     public required int Threads { get; init; }
@@ -51,13 +62,8 @@ internal sealed record ServerSettings
     {
         // Not LocalApplicationData: on Windows, MSIX-packaged clients such as Claude Desktop see a
         // virtualized AppData, so models stored there by other processes are invisible to the server.
-        var defaultModels = Path.Combine(home, ".local-whisper-mcp", "models");
-        var modelsDirectory = Get("LOCAL_WHISPER_MODELS_DIR") is { } models ? ExpandHome(models, home) : defaultModels;
-        if (!Path.IsPathFullyQualified(modelsDirectory))
-        {
-            warnings.Add($"LOCAL_WHISPER_MODELS_DIR must be an absolute path; using {defaultModels}.");
-            modelsDirectory = defaultModels;
-        }
+        var modelsDirectory = GetDirectory("LOCAL_WHISPER_MODELS_DIR", Path.Combine(home, ".local-whisper-mcp", "models"));
+        var inboxDirectory = GetDirectory("LOCAL_WHISPER_INBOX_DIR", Path.Combine(home, ".local-whisper-mcp", "inbox"));
 
         var defaultModel = Get("LOCAL_WHISPER_MODEL") ?? DefaultModelName;
         if (!ModelCatalog.IsValidName(defaultModel))
@@ -145,17 +151,30 @@ internal sealed record ServerSettings
 
         return new ServerSettings
         {
-            ModelsDirectory = Path.GetFullPath(modelsDirectory),
+            ModelsDirectory = modelsDirectory,
             DefaultModel = defaultModel,
             DefaultLanguage = language,
             Runtime = runtime,
             IdleTimeout = TimeSpan.FromMinutes(idleMinutes),
             AllowedRoots = roots,
+            InboxDirectory = inboxDirectory,
             Threads = threads,
             AutoDownload = autoDownload,
         };
 
         string? Get(string name) => getVariable(name) is { } value && value.Trim() is { Length: > 0 } trimmed ? trimmed : null;
+
+        string GetDirectory(string name, string fallback)
+        {
+            var directory = Get(name) is { } value ? ExpandHome(value, home) : fallback;
+            if (Path.IsPathFullyQualified(directory))
+            {
+                return Path.GetFullPath(directory);
+            }
+
+            warnings.Add($"{name} must be an absolute path; using {fallback}.");
+            return Path.GetFullPath(fallback);
+        }
     }
 
     // Shells expand ~, but MCP clients pass environment variables verbatim.

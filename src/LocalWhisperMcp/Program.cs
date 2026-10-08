@@ -72,6 +72,8 @@ foreach (var warning in warnings)
     logger.LogWarning("{Warning}", warning);
 }
 
+Inbox.Prepare(settings.InboxDirectory, logger);
+
 logger.LogInformation(
     "{Name} {Version} started. Models: {Models}. Default model: {Model}. Runtimes: {Runtimes}.",
     ServerInfo.Name,
@@ -93,7 +95,8 @@ static string Usage() =>
 
     Settings come from environment variables: LOCAL_WHISPER_MODELS_DIR, LOCAL_WHISPER_MODEL,
     LOCAL_WHISPER_LANGUAGE, LOCAL_WHISPER_RUNTIME, LOCAL_WHISPER_IDLE_MINUTES,
-    LOCAL_WHISPER_ALLOWED_ROOTS, LOCAL_WHISPER_THREADS, and LOCAL_WHISPER_AUTO_DOWNLOAD.
+    LOCAL_WHISPER_ALLOWED_ROOTS, LOCAL_WHISPER_INBOX_DIR, LOCAL_WHISPER_THREADS, and
+    LOCAL_WHISPER_AUTO_DOWNLOAD.
     """;
 
 /// <summary>Serializes the tool results under Native AOT.</summary>

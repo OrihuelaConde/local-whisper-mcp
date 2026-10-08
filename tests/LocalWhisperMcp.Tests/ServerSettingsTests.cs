@@ -18,6 +18,8 @@ public sealed class ServerSettingsTests
         Assert.Equal("auto", settings.Runtime);
         Assert.Equal(TimeSpan.FromMinutes(10), settings.IdleTimeout);
         Assert.Equal([Home], settings.AllowedRoots);
+        Assert.Equal(Path.Combine(Home, ".local-whisper-mcp", "inbox"), settings.InboxDirectory);
+        Assert.Equal([Home, settings.InboxDirectory], settings.ReadableRoots);
         Assert.True(settings.AutoDownload);
         Assert.InRange(settings.Threads, 1, 8);
     }
@@ -63,6 +65,7 @@ public sealed class ServerSettingsTests
             new()
             {
                 ["LOCAL_WHISPER_MODELS_DIR"] = "relative/models",
+                ["LOCAL_WHISPER_INBOX_DIR"] = "inbox",
                 ["LOCAL_WHISPER_MODEL"] = "../escape",
                 ["LOCAL_WHISPER_LANGUAGE"] = "spanish",
                 ["LOCAL_WHISPER_RUNTIME"] = "metal",
@@ -73,8 +76,9 @@ public sealed class ServerSettingsTests
             },
             warnings);
 
-        Assert.Equal(9, warnings.Count);
+        Assert.Equal(10, warnings.Count);
         Assert.Equal(Path.Combine(Home, ".local-whisper-mcp", "models"), settings.ModelsDirectory);
+        Assert.Equal(Path.Combine(Home, ".local-whisper-mcp", "inbox"), settings.InboxDirectory);
         Assert.Equal("large-v3-turbo-q8_0", settings.DefaultModel);
         Assert.Equal("auto", settings.DefaultLanguage);
         Assert.Equal("auto", settings.Runtime);
