@@ -4,8 +4,10 @@ using Concentus.Oggfile;
 using NLayer;
 using Whisper.net.Wave;
 
+namespace PocCore;
+
 /// <summary>Loads audio files as 16 kHz mono samples without depending on ffmpeg for common formats.</summary>
-internal static class AudioLoader
+public static class AudioLoader
 {
     /// <summary>The sample rate that Whisper expects, in hertz.</summary>
     public const int SampleRate = 16000;
@@ -16,9 +18,7 @@ internal static class AudioLoader
     /// <exception cref="NotSupportedException">The format isn't supported and ffmpeg isn't on the <c>PATH</c>.</exception>
     public static async Task<float[]> LoadAsync(string path)
     {
-        var extension = Path.GetExtension(path).ToLowerInvariant();
-        Metrics.Log($"decoder: {extension switch { ".wav" => "WaveParser", ".ogg" or ".opus" => "Concentus", ".mp3" => "NLayer", _ => "ffmpeg" }}");
-        return extension switch
+        return Path.GetExtension(path).ToLowerInvariant() switch
         {
             ".wav" => await LoadWaveAsync(path),
             ".ogg" or ".opus" => LoadOpus(path),
@@ -131,10 +131,21 @@ internal static class AudioLoader
             return samples;
         }
     }
+
+    /// <summary>Gets the name of the decoder that <see cref="LoadAsync"/> uses for a file.</summary>
+    /// <param name="path">The path to the audio file.</param>
+    /// <returns>The decoder name.</returns>
+    public static string GetDecoderName(string path) => Path.GetExtension(path).ToLowerInvariant() switch
+    {
+        ".wav" => "WaveParser",
+        ".ogg" or ".opus" => "Concentus",
+        ".mp3" => "NLayer",
+        _ => "ffmpeg",
+    };
 }
 
 /// <summary>Converts mono samples between sample rates with a windowed-sinc filter.</summary>
-internal static class Resampler
+public static class Resampler
 {
     private const int HalfTaps = 16;
 
