@@ -2,12 +2,14 @@
 
 Usage: python mcp_smoke.py SERVER CALLS_JSON [EXPECTED_TEXT]
 
-CALLS_JSON is a file with a list of {"name": ..., "arguments": {...}} objects. When
+CALLS_JSON is a file with a list of {"name": ..., "arguments": {...}} objects. An item can
+also be {"sleep": SECONDS} to wait, or {"gpu": LABEL} to print the GPU memory in use. When
 EXPECTED_TEXT is given, the script fails unless the last call succeeds and its text contains
 EXPECTED_TEXT, ignoring case and punctuation.
 """
 import json
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -57,6 +59,18 @@ print("tools:", [t["name"] for t in request("tools/list")["result"]["tools"]])
 
 last = None
 for call in calls:
+    if "sleep" in call:
+        time.sleep(call["sleep"])
+        continue
+    if "gpu" in call:
+        if shutil.which("nvidia-smi"):
+            used = subprocess.run(
+                ["nvidia-smi", "--query-gpu=memory.used", "--format=csv,noheader,nounits"],
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+            print(f"gpu {call['gpu']}: {used} MiB used")
+        continue
     start = time.perf_counter()
     last = request("tools/call", {"name": call["name"], "arguments": call.get("arguments", {})})
     elapsed = time.perf_counter() - start

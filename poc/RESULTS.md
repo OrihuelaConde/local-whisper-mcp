@@ -8,15 +8,35 @@ plan.
 
 | # | Check | Result | Evidence |
 |---|-------|--------|----------|
-| 1 | Minimal MCP server with `ModelContextProtocol` 2.2.0 and `PublishAot` | Go | No IL2xxx or IL3xxx warnings from the SDK. The 13 MB `win-x64` executable answers `initialize` in about 20 ms and serves `tools/list` and `tools/call` over stdio. Registration in a Claude Code session is pending. |
-| 2 | Transcribe a 16 kHz mono WAV under AOT on the CPU runtime | Pending | The native library loads under AOT after the x86-64-v3 fix (see [Findings](#findings)). Waiting for a model. |
-| 3 | Same as 2 with the CUDA runtime | Pending | The driver supports CUDA 13.4, but the CUDA Toolkit isn't installed. |
-| 4 | Same as 2 with `Whisper.net.Runtime.Vulkan`, without the Vulkan SDK | Pending | Waiting for a model. |
-| 5 | Decode Ogg Opus with Concentus, without ffmpeg, and transcribe it | Decode: go | Two real WhatsApp voice notes (4 s and 24 s, SILK wideband, 120 ms packets) and a synthetic Opus file decode under AOT with the same sample count as ffmpeg/libopus and no timestamp offset (correlation 0.995 to 1.000 against the libopus output). This required working around two Concentus bugs (see [Findings](#findings)). NLayer matches ffmpeg for MP3 (0.9997). Transcription pending. |
-| 6 | Silero VAD on audio with long pauses | Pending | Implemented: speech spans from `WhisperVadFactory` are transcribed one by one. |
-| 7 | Time per audio minute, RAM, and VRAM for `large-v3-turbo` full, q5_0, and q8_0 | Pending | |
+| 1 | Minimal MCP server with `ModelContextProtocol` 2.2.0 and `PublishAot` | Go | No IL2xxx or IL3xxx warnings from the SDK. The 14 MB `win-x64` executable answers `initialize` in about 25 ms and serves `tools/list` and `tools/call` over stdio, including real transcriptions. A call from a Claude Code session is pending. |
+| 2 | Transcribe a 16 kHz mono WAV under AOT on the CPU runtime | Go | With the x86-64-v3 fix (see [Findings](#findings)), the AOT build loads the CPU runtime and transcribes. `base` on 8 threads: 2.7 s per audio minute, 0.2 s to load, 364 MiB peak RAM, and a word-perfect transcript of the synthetic Spanish note. |
+| 3 | Same as 2 with the CUDA runtime | Postponed | The driver supports CUDA 13.4, but the CUDA Toolkit isn't installed. Vulkan already gives GPU speed without installing anything, so CUDA waits for a reason to need it. |
+| 4 | Same as 2 with `Whisper.net.Runtime.Vulkan`, without the Vulkan SDK | Go | The Vulkan loader that ships with the NVIDIA driver (`vulkan-1.dll`) is enough: whisper.cpp finds the RTX 3080 with cooperative matrix support (`NV_coopmat2`). `base`: 0.75 s per audio minute. The first run on a machine takes about 7 s longer while the driver compiles and caches the shaders. |
+| 5 | Decode Ogg Opus with Concentus, without ffmpeg, and transcribe it | Go | Two real WhatsApp voice notes (4 s and 24 s, SILK wideband, 120 ms packets) and a synthetic Opus file decode under AOT with the same sample count as ffmpeg/libopus and no timestamp offset (correlation 0.995 to 1.000 against the libopus output). This required working around two Concentus bugs (see [Findings](#findings)). `large-v3-turbo` transcribes the 24-second note almost word for word, including Rioplatense voseo; `base` misses several words. NLayer matches ffmpeg for MP3 (0.9997). |
+| 6 | Silero VAD on audio with long pauses | Go | On a synthetic note with 25 s of silence and 30 s of noise, no model invents text, but without VAD timestamps snap to 30-second windows and land 4.1 s and 11.9 s early. With VAD, segments start within 0.2 s of the measured speech onsets (34.11 s and 71.92 s). Joining the speech spans before transcribing makes VAD cheaper, not costlier: `base` on CPU takes 0.8 s with VAD against 1.6 s without it. Hallucinations in real, noisy silence still need a real recording. |
+| 7 | Time per audio minute, RAM, and VRAM for `large-v3-turbo` full, q5_0, and q8_0 | Go | See [Measurements](#measurements). On the RTX 3080 with Vulkan, q8_0 is the best trade-off: 0.95 s per audio minute and 1.3 GiB of VRAM. On the CPU every variant takes 27 to 34 s per audio minute. |
 | 8 | Native AOT publish and a short CPU transcription on Linux and macOS | Pending | The `poc-native-aot` workflow runs on demand only. |
-| 9 | Local MCP visible in claude.ai cloud sessions as `mcp__remote-devices__<server>__<tool>` | Pending | The reference LinkedIn server is installed as a Claude Desktop extension (MCPB, manifest 0.4). |
+| 9 | Local MCP visible in claude.ai cloud sessions as `mcp__remote-devices__<server>__<tool>` | Pending | The reference LinkedIn server is a Claude Desktop extension (MCPB, manifest 0.4). `poc/mcpb/pack.ps1` builds a 24 MB `binary` extension of this server for `win-x64`; it still needs to be installed and called from Claude Desktop and from a cloud session. |
+
+## Measurements
+
+`large-v3-turbo` on a 170-second synthetic Spanish note (`--language es`, no VAD), on the test
+machine described below. Vulkan figures are from the second run; the first run of a new executable
+takes about 5 s longer while the driver compiles shaders. VRAM is the increase in GPU memory in use
+while the process runs. CPU runs use 8 threads.
+
+| Model | Size | Runtime | Load | Seconds per audio minute | Peak RAM | VRAM |
+|-------|------|---------|------|--------------------------|----------|------|
+| q5_0 | 547 MiB | Vulkan | 0.6 s | 1.45 | 646 MiB | 1.1 GiB |
+| q8_0 | 834 MiB | Vulkan | 0.8 s | 0.95 | 936 MiB | 1.3 GiB |
+| full (f16) | 1.5 GiB | Vulkan | 1.4 s | 0.99 | 1.1 GiB | 2.0 GiB |
+| q5_0 | 547 MiB | CPU | 0.4 s | 31.1 | 1.1 GiB | - |
+| q8_0 | 834 MiB | CPU | 0.6 s | 26.7 | 1.4 GiB | - |
+| full (f16) | 1.5 GiB | CPU | 1.1 s | 34.3 | 2.1 GiB | - |
+
+The MCP server releases the model after the idle timeout: GPU memory in use went from 2,344 MiB to
+3,194 MiB after the first call with q8_0 on Vulkan, back to 2,359 MiB after the timeout, and the next
+call reloaded the model in 0.8 s.
 
 ## Findings
 
@@ -51,6 +71,14 @@ plan.
 - **Opus pre-skip and MP3 delay.** The Ogg reader drops the Opus pre-skip and trims the end to the
   last granule position, so the output lines up with ffmpeg sample for sample. NLayer still doesn't
   drop the MP3 encoder delay (69 ms in the test file); the final decoder should trim it.
+- **MSIX clients may not see `%LOCALAPPDATA%`.** The Python install manager is an MSIX package,
+  and processes it starts inherit a virtualized view of `AppData`: Python's `os.path.exists`
+  returned `False` for models that another process had saved under
+  `%LOCALAPPDATA%\local-whisper-mcp\models`, and whisper.cpp launched from Python failed to open
+  them. Claude Desktop (`Claude_pzs8sxrjxfjjc`) is also an MSIX package, so the server it starts
+  likely gets the same view; check 9 verifies it. The server therefore defaults to
+  `~/.local-whisper-mcp/models`, the same pattern the LinkedIn extension follows with
+  `~/.linkedin-mcp`.
 - **Claude Desktop extensions.** The LinkedIn server that appears in cloud sessions is an MCP Bundle
   (`.mcpb`) with server type `uv`, which means Claude Desktop manages its Python environment. MCPB
   also supports the `binary` server type, which fits a per-platform AOT executable.
@@ -66,6 +94,10 @@ plan.
   $env:PATH = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer;$env:PATH"
   dotnet publish poc/AotMcp -c Release -r win-x64
   ```
+
+- **Stale Native AOT intermediates.** Once, after source changes, ILC failed with
+  `Object reference not set to an instance of an object`. Deleting `obj/Release` and publishing
+  again fixed it.
 
 ## Test machine
 

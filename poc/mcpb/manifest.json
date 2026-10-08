@@ -1,0 +1,67 @@
+{
+  "manifest_version": "0.3",
+  "name": "local-whisper-mcp-poc",
+  "display_name": "Local Whisper (proof of concept)",
+  "version": "0.0.1",
+  "description": "Transcribes audio files on this machine with Whisper. The audio never leaves the machine.",
+  "author": {
+    "name": "José Luis Orihuela Conde"
+  },
+  "server": {
+    "type": "binary",
+    "entry_point": "server/AotMcp.exe",
+    "mcp_config": {
+      "command": "${__dirname}/server/AotMcp.exe",
+      "args": [],
+      "env": {
+        "LOCAL_WHISPER_MODEL": "${user_config.model}",
+        "LOCAL_WHISPER_LANGUAGE": "${user_config.language}",
+        "LOCAL_WHISPER_RUNTIME": "${user_config.runtime}",
+        "LOCAL_WHISPER_IDLE_MINUTES": "${user_config.idle_minutes}"
+      }
+    }
+  },
+  "tools": [
+    {
+      "name": "transcribe",
+      "description": "Transcribes an audio file on this machine with Whisper."
+    },
+    {
+      "name": "status",
+      "description": "Reports the device, the loaded model, and the seconds left before the idle model is released."
+    }
+  ],
+  "user_config": {
+    "model": {
+      "type": "string",
+      "title": "Model",
+      "description": "Model name in the models folder, for example large-v3-turbo-q5_0 or base.",
+      "required": false,
+      "default": "large-v3-turbo-q5_0"
+    },
+    "language": {
+      "type": "string",
+      "title": "Default language",
+      "description": "Two-letter language code, or auto to detect it.",
+      "required": false,
+      "default": "auto"
+    },
+    "runtime": {
+      "type": "string",
+      "title": "Runtime",
+      "description": "auto, cpu, vulkan, or cuda. Unavailable GPU runtimes fall back to the CPU.",
+      "required": false,
+      "default": "auto"
+    },
+    "idle_minutes": {
+      "type": "string",
+      "title": "Idle minutes",
+      "description": "Minutes without calls before the model is released from memory.",
+      "required": false,
+      "default": "10"
+    }
+  },
+  "compatibility": {
+    "platforms": ["win32"]
+  }
+}

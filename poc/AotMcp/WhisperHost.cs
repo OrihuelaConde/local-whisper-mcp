@@ -27,7 +27,10 @@ public sealed record WhisperSettings(
     public static WhisperSettings FromEnvironment()
     {
         var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        var dataDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "local-whisper-mcp", "models");
+
+        // Not LocalApplicationData: on Windows, MSIX-packaged clients such as Claude Desktop see a
+        // virtualized AppData, so models stored there by other processes are invisible to the server.
+        var dataDirectory = Path.Combine(home, ".local-whisper-mcp", "models");
         var roots = Get("LOCAL_WHISPER_ALLOWED_ROOTS", home)
             .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Select(Path.GetFullPath)
