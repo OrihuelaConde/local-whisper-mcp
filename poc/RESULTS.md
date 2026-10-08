@@ -15,7 +15,7 @@ plan.
 | 5 | Decode Ogg Opus with Concentus, without ffmpeg, and transcribe it | Go | Two real WhatsApp voice notes (4 s and 24 s, SILK wideband, 120 ms packets) and a synthetic Opus file decode under AOT with the same sample count as ffmpeg/libopus and no timestamp offset (correlation 0.995 to 1.000 against the libopus output). This required working around two Concentus bugs (see [Findings](#findings)). `large-v3-turbo` transcribes the 24-second note almost word for word, including Rioplatense voseo; `base` misses several words. NLayer matches ffmpeg for MP3 (0.9997). |
 | 6 | Silero VAD on audio with long pauses | Go | On a synthetic note with 25 s of silence and 30 s of noise, no model invents text, but without VAD timestamps snap to 30-second windows and land 4.1 s and 11.9 s early. With VAD, segments start within 0.2 s of the measured speech onsets (34.11 s and 71.92 s). Joining the speech spans before transcribing makes VAD cheaper, not costlier: `base` on CPU takes 0.8 s with VAD against 1.6 s without it. Hallucinations in real, noisy silence still need a real recording. |
 | 7 | Time per audio minute, RAM, and VRAM for `large-v3-turbo` full, q5_0, and q8_0 | Go | See [Measurements](#measurements). On the RTX 3080 with Vulkan, q8_0 is the best trade-off: 0.95 s per audio minute and 1.3 GiB of VRAM. On the CPU every variant takes 27 to 34 s per audio minute. |
-| 8 | Native AOT publish and a short CPU transcription on Linux and macOS | Pending | The `poc-native-aot` workflow runs on demand only. |
+| 8 | Native AOT publish and a short CPU transcription on Linux and macOS | Go | The `poc-native-aot` workflow ([run 37847187992](https://github.com/OrihuelaConde/local-whisper-mcp/actions/runs/37847187992)) published the MCP server with Native AOT on `linux-x64`, `linux-arm64`, `osx-arm64`, and `osx-x64`, and on each one transcribed the JFK sample with `tiny` through the MCP protocol, word for word. The only IL warning is the known IL3000 from Whisper.net. On `osx-arm64` the first model load took 16.6 s, against 0.04 to 0.11 s elsewhere; see [Findings](#findings). Each job took 1 to 2 minutes. |
 | 9 | Local MCP visible in claude.ai cloud sessions as `mcp__remote-devices__<server>__<tool>` | Go | With the `.mcpb` extension installed in Claude Desktop, a Cowork session in the cloud copied an attached WhatsApp note to the PC, called `transcribe` with its absolute path, and returned the same transcript as the local tests. The exact tool name in the cloud session wasn't checked. See [Findings](#findings) for the folder prompt and the leftover copy. |
 
 ## Measurements
@@ -54,6 +54,9 @@ call reloaded the model in 0.8 s.
   `win-x64`, although its README lists only Windows x64.
 - **Metal on Apple Silicon.** The `macos-arm64` binaries in `Whisper.net.Runtime` include the Metal
   backend, so Apple Silicon gets GPU acceleration without a separate package.
+- **Metal on the first load.** On the `osx-arm64` runner, loading `tiny` took 16.6 s, most likely
+  because ggml compiles its Metal shaders on the first load of the Metal backend. Apple Silicon users
+  would see this delay once per process unless the server warms up or caches the compiled library.
 - **Desktop RIDs.** `Whisper.net.Runtime` ships CPU binaries for `win-x64`, `win-arm64`, `win-x86`,
   `linux-x64`, `linux-arm64`, `linux-arm`, `osx-x64` (as `macos-x64`), and `osx-arm64`.
 - **Publish size.** The publish output copies native binaries for every platform. The Vulkan
