@@ -72,8 +72,16 @@ call reloaded the model in 0.8 s.
   each frame as a single-frame packet, and runs packet loss concealment for empty frames, which is
   what libopus does.
 - **Opus pre-skip and MP3 delay.** The Ogg reader drops the Opus pre-skip and trims the end to the
-  last granule position, so the output lines up with ffmpeg sample for sample. NLayer still doesn't
-  drop the MP3 encoder delay (69 ms in the test file); the final decoder should trim it.
+  last granule position, so the output lines up with ffmpeg sample for sample. NLayer doesn't drop
+  the MP3 encoder delay (69 ms in the test file). The server in `src/` reads the delay and padding
+  from the LAME tag and trims them as ffmpeg does: on the test file, both output 389,020 samples
+  with a correlation of 1.0000.
+- **Whisper.net's WAV downmix.** `WaveParser.GetAvgSamples` returned 0.69 for a stereo file whose
+  channel average is 0.49, √2 times the average. The server in `src/` reads WAV files itself, which
+  also adds 24-bit, 32-bit, floating-point, and `WAVE_FORMAT_EXTENSIBLE` files.
+- **Decoder parity test.** `DecoderParityTests` compares each managed decoder with ffmpeg on the
+  files in the folder that `LOCAL_WHISPER_TEST_AUDIO` names, so private voice notes stay out of the
+  repository. Run it with `-diagnostics` to see the per-file report.
 - **MSIX packages get private views of `AppData`.** Claude Desktop (`Claude_pzs8sxrjxfjjc`) and the
   Python install manager are MSIX packages, and the processes they start inherit their package's
   view of `AppData`. Files that a process under Claude Desktop writes to `%LOCALAPPDATA%` or
