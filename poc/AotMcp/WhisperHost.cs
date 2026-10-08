@@ -119,7 +119,8 @@ public sealed class WhisperHost : IDisposable
             ? null
             : Math.Max(0, (Settings.IdleTimeout - (DateTimeOffset.UtcNow - lastUse)).TotalSeconds);
         return new HostStatus(
-            Transcriber.LoadedRuntime,
+            loaded is null ? null : Transcriber.LoadedRuntime,
+            Transcriber.GetInstalledRuntimes(),
             loaded is null ? null : Path.GetFileName(loaded.ModelPath),
             secondsUntilRelease,
             Settings.DefaultModel,
@@ -164,14 +165,16 @@ public sealed class WhisperHost : IDisposable
 }
 
 /// <summary>Describes the state of the server.</summary>
-/// <param name="Device">The native runtime in use, such as <c>Cpu</c> or <c>Vulkan</c>, or <c>none</c> before the first load.</param>
+/// <param name="Device">The native runtime in use, such as <c>Cpu</c> or <c>Vulkan</c>, or <see langword="null"/> while no model is loaded.</param>
+/// <param name="AvailableRuntimes">The installed runtimes in the order the server tries them; the first one that loads becomes <paramref name="Device"/>.</param>
 /// <param name="LoadedModel">The file name of the loaded model, or <see langword="null"/> if no model is loaded.</param>
 /// <param name="SecondsUntilRelease">The seconds left before the idle model is released, or <see langword="null"/> if no model is loaded.</param>
 /// <param name="DefaultModel">The model that calls use when they don't specify one.</param>
 /// <param name="RuntimeIdentifier">The runtime identifier (RID) of the server process.</param>
 /// <param name="NativeAot"><see langword="true"/> when the server runs as Native AOT code.</param>
 public sealed record HostStatus(
-    string Device,
+    string? Device,
+    IReadOnlyList<string> AvailableRuntimes,
     string? LoadedModel,
     double? SecondsUntilRelease,
     string DefaultModel,

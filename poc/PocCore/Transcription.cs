@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -35,6 +36,23 @@ public sealed class Transcriber : IDisposable
 
     /// <summary>Gets the native runtime that Whisper.net loaded, such as CPU or Vulkan.</summary>
     public static string LoadedRuntime => RuntimeOptions.LoadedLibrary?.ToString() ?? "none";
+
+    /// <summary>Lists the native runtimes installed next to the executable, in the order Whisper.net tries them.</summary>
+    /// <returns>The runtime names, such as <c>Vulkan</c> and <c>Cpu</c>.</returns>
+    public static IReadOnlyList<string> GetInstalledRuntimes()
+    {
+        var platform = OperatingSystem.IsWindows() ? "win" : OperatingSystem.IsMacOS() ? "macos" : "linux";
+        var target = $"{platform}-{RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant()}";
+        var runtimes = Path.Combine(AppContext.BaseDirectory, "runtimes");
+        return [.. RuntimeOptions.RuntimeLibraryOrder
+            .Where(library => Directory.Exists(library switch
+            {
+                RuntimeLibrary.Cpu => Path.Combine(runtimes, target),
+                RuntimeLibrary.CpuNoAvx => Path.Combine(runtimes, "noavx", target),
+                _ => Path.Combine(runtimes, library.ToString().ToLowerInvariant(), target),
+            }))
+            .Select(library => library.ToString())];
+    }
 
     /// <summary>Selects the native runtimes that Whisper.net may load, in order of preference.</summary>
     /// <param name="runtime">One of <c>auto</c>, <c>cpu</c>, <c>vulkan</c>, or <c>cuda</c>.</param>
