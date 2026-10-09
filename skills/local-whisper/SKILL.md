@@ -1,11 +1,11 @@
 ---
 name: local-whisper
-description: Transcribes audio to text with Local Whisper, on the user's own computer, so the audio stays on their machine. Use it whenever the user wants an audio file, voice note, or recording turned into text, subtitles, or a summary, or attaches audio, even without naming Local Whisper.
+description: Transcribes audio and video to text with Local Whisper, on the user's own computer, so the recording stays on their machine. Use it whenever the user wants an audio or video file, voice note, or recording turned into text, subtitles, or a summary, or attaches one, even without naming Local Whisper.
 ---
 
 # Local Whisper
 
-Local Whisper is an MCP server on the user's computer that runs Whisper there. Transcription happens only on that computer: it's the promise the user chose this tool for. The server has two tools, `transcribe` and `status`, under a prefix that depends on the surface, such as `mcp__Local_Whisper__transcribe`, or `mcp__remote-devices__Local_Whisper__transcribe` in a cloud session linked to the computer. Search for "Local Whisper" when the tools are deferred.
+Local Whisper is an MCP server on the user's computer that runs Whisper there. Transcription happens only on that computer: it's the promise the user chose this tool for. The server's tools, `transcribe`, `status`, and `delete_models`, carry a prefix that depends on the surface, such as `mcp__Local_Whisper__transcribe`, or `mcp__remote-devices__Local_Whisper__transcribe` in a cloud session linked to the computer. Search for "Local Whisper" when the tools are deferred.
 
 ## Pick the path
 
@@ -40,10 +40,11 @@ The path is done when `transcribe` returns text.
 
 ## Unreachable
 
-Transcription stays on the user's computer even when this session could install Whisper or call a speech-to-text service: keeping the audio on the user's machine is the reason they chose Local Whisper. The reply is the steps to connect it, first and short, with at most one sentence on why. Pick the steps by the tools this session has:
+Transcription stays on the user's computer even when this session could install Whisper or call a speech-to-text service: keeping the audio on the user's machine is the reason they chose Local Whisper. The reply is the steps to connect it, first and short, with at most one sentence on why. All the files are in the latest release, https://github.com/OrihuelaConde/local-whisper-mcp/releases/latest. Pick the steps by where this session runs:
 
-- **No device tools** (no `device_commit_files`): the chat isn't running on the user's computer. Tell them to start a new chat in claude.ai, click **+** in the message box, choose **Devices**, and pick their computer under **Run tasks on**; then attach the audio again and ask. The computer must be on, with the Claude desktop app open.
-- **Device tools but no Local Whisper tools**: the chat runs on the computer, but the server isn't installed there. Tell them to install the Local Whisper extension in the Claude desktop app from https://github.com/OrihuelaConde/local-whisper-mcp/releases/latest, then start a new chat on that computer and ask again.
+- **Claude Code on the user's computer** (the terminal, an IDE, or the Code tab of the Claude desktop app): the server isn't registered. Tell them to download the archive for their system from the latest release, extract it to a folder they keep, run `claude mcp add local-whisper -- PATH_TO_EXECUTABLE` with the full path of `local-whisper-mcp` (`local-whisper-mcp.exe` on Windows), and start a new session.
+- **A chat without device tools** (no `device_commit_files`), such as claude.ai in the browser: the chat isn't running on the user's computer. Tell them to install the Local Whisper extension in the Claude desktop app if they haven't, then start a new chat in claude.ai, click **+** in the message box, choose **Devices**, pick their computer under **Run tasks on**, attach the audio again, and ask. The computer must be on, with the Claude desktop app open.
+- **A chat with device tools but no Local Whisper tools**: the chat runs on the computer, but the server isn't installed there. Tell them to install the `.mcpb` extension for their system from the latest release in the Claude desktop app, then start a new chat on that computer and ask again.
 
 The path is done when the user has the steps for their case.
 

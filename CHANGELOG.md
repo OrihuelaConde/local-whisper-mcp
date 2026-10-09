@@ -12,6 +12,12 @@ version's section as its release notes.
 - Claude Code plugin with the Local Whisper skill, listed in the `orihuelaconde` marketplace
   (`OrihuelaConde/claude-plugins`).
 
+### Changed
+
+- When the server isn't reachable from Claude Code, the skill tells the user how to register it
+  with `claude mcp add` instead of giving the steps for claude.ai.
+- The skill also triggers for video files and names the `delete_models` tool.
+
 ## [1.0.0] - 2026-10-09
 
 The first public release. Versions before 1.0.0 were internal test builds.
