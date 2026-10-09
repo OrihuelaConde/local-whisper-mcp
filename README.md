@@ -68,9 +68,13 @@ A claude.ai chat reaches the server through the Claude desktop app on your compu
 
 ### The skill
 
-The Local Whisper skill tells Claude when to use the server, how to pass it a chat attachment, and
-what to tell you when the server isn't reachable. To add it to claude.ai, download
-`local-whisper-skill.zip` and upload it in **Settings > Capabilities**, under **Skills**.
+The skill is optional, and recommended. The server works without it, but the skill tells Claude
+when to use the server, how to pass it a chat attachment, and what to tell you when the server
+isn't reachable. Without it, a claude.ai chat that doesn't run on your computer can't see the server
+and may try to transcribe the audio in the cloud instead of telling you how to connect it.
+
+To add the skill to claude.ai, download `local-whisper-skill.zip` and upload it in
+**Settings > Capabilities**, under **Skills**.
 
 ## Use
 
