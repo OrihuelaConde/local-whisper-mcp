@@ -100,6 +100,49 @@ public sealed class ServerSettingsTests
         Assert.Equal(TimeSpan.FromMinutes(10), settings.IdleTimeout);
     }
 
+    [Theory]
+    [InlineData("false", "vulkan", "cpu")]
+    [InlineData("true", "vulkan", "vulkan")]
+    [InlineData("true", null, "auto")]
+    public void Turning_the_gpu_off_forces_the_cpu_runtime(string useGpu, string? runtime, string expected)
+    {
+        var variables = new Dictionary<string, string> { ["LOCAL_WHISPER_USE_GPU"] = useGpu };
+        if (runtime is not null)
+        {
+            variables["LOCAL_WHISPER_RUNTIME"] = runtime;
+        }
+
+        Assert.Equal(expected, Read(variables, []).Runtime);
+    }
+
+    [Fact]
+    public void Placeholders_that_claude_desktop_leaves_for_unsaved_settings_count_as_unset()
+    {
+        var warnings = new List<string>();
+
+        var settings = ServerSettings.FromVariables(
+            name => $"${{user_config.{name}}}",
+            Home,
+            warnings,
+            ["${user_config.allowed_folders}"]);
+
+        Assert.Empty(warnings);
+        Assert.Equal("large-v3-turbo-q8_0", settings.DefaultModel);
+        Assert.Equal("auto", settings.Runtime);
+        Assert.Equal([Home], settings.AllowedRoots);
+    }
+
+    [Fact]
+    public void Folders_from_the_command_line_replace_the_allowed_roots_variable()
+    {
+        var picked = Path.Combine(Path.GetTempPath(), "picked");
+        var variables = new Dictionary<string, string> { ["LOCAL_WHISPER_ALLOWED_ROOTS"] = Path.Combine(Path.GetTempPath(), "variable") };
+
+        var settings = ServerSettings.FromVariables(name => variables.GetValueOrDefault(name), Home, [], [picked, " "]);
+
+        Assert.Equal([picked], settings.AllowedRoots);
+    }
+
     private static ServerSettings Read(Dictionary<string, string> variables, List<string> warnings) =>
         ServerSettings.FromVariables(name => variables.GetValueOrDefault(name), Home, warnings);
 }

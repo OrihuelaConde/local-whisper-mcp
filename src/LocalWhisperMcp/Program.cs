@@ -8,12 +8,14 @@ using Microsoft.Extensions.Logging.Console;
 using ModelContextProtocol;
 using ModelContextProtocol.Protocol;
 
+// The Claude Desktop extension passes the folders the user picked as arguments, because its
+// settings expand a list of folders only into arguments, not into environment variables.
 var warnings = new List<string>();
-var settings = ServerSettings.FromEnvironment(warnings);
+var settings = ServerSettings.FromEnvironment(args is ["--allowed-roots", .. var roots] ? roots : [], warnings);
 
 switch (args)
 {
-    case []:
+    case [] or ["--allowed-roots", ..]:
         break;
     case ["--version" or "-v"]:
         Console.WriteLine(ServerInfo.Version);
@@ -89,12 +91,14 @@ static string Usage() =>
     {ServerInfo.Name} {ServerInfo.Version}: an MCP server that transcribes audio locally with Whisper.
 
     Usage:
-      {ServerInfo.Name}                    Run the MCP server over stdio.
+      {ServerInfo.Name} [--allowed-roots DIR...]
+                                           Run the MCP server over stdio. The folders replace
+                                           LOCAL_WHISPER_ALLOWED_ROOTS.
       {ServerInfo.Name} download [MODEL]   Download a model and the VAD model. MODEL defaults to {ServerSettings.DefaultModelName}.
       {ServerInfo.Name} --version          Print the version.
 
     Settings come from environment variables: LOCAL_WHISPER_MODELS_DIR, LOCAL_WHISPER_MODEL,
-    LOCAL_WHISPER_LANGUAGE, LOCAL_WHISPER_RUNTIME, LOCAL_WHISPER_IDLE_MINUTES,
+    LOCAL_WHISPER_LANGUAGE, LOCAL_WHISPER_RUNTIME, LOCAL_WHISPER_USE_GPU, LOCAL_WHISPER_IDLE_MINUTES,
     LOCAL_WHISPER_ALLOWED_ROOTS, LOCAL_WHISPER_INBOX_DIR, LOCAL_WHISPER_THREADS, and
     LOCAL_WHISPER_AUTO_DOWNLOAD.
     """;

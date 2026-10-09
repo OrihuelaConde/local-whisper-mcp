@@ -44,21 +44,25 @@ internal sealed record ServerSettings
     public required bool AutoDownload { get; init; }
 
     /// <summary>Reads the settings from the process environment.</summary>
+    /// <param name="allowedRoots">The folders from the <c>--allowed-roots</c> option, which replace <c>LOCAL_WHISPER_ALLOWED_ROOTS</c> when there are any.</param>
     /// <param name="warnings">Receives a message for every variable with an invalid value.</param>
     /// <returns>The settings, with defaults for every variable that isn't set or isn't valid.</returns>
-    public static ServerSettings FromEnvironment(ICollection<string> warnings) =>
-        FromVariables(Environment.GetEnvironmentVariable, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), warnings);
+    public static ServerSettings FromEnvironment(IReadOnlyList<string> allowedRoots, ICollection<string> warnings) =>
+        FromVariables(Environment.GetEnvironmentVariable, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), warnings, allowedRoots);
 
     /// <summary>Reads the settings from a set of variables.</summary>
     /// <param name="getVariable">Returns the value of a variable, or <see langword="null"/> if it isn't set.</param>
     /// <param name="home">The user's home directory.</param>
     /// <param name="warnings">Receives a message for every variable with an invalid value.</param>
+    /// <param name="allowedRoots">The folders from the <c>--allowed-roots</c> option, which replace <c>LOCAL_WHISPER_ALLOWED_ROOTS</c> when there are any.</param>
     /// <returns>The settings, with defaults for every variable that isn't set or isn't valid.</returns>
     /// <remarks>
     /// An invalid value falls back to the default instead of stopping the server, because clients
-    /// such as Claude Desktop only report that a server failed to start, not why.
+    /// such as Claude Desktop only report that a server failed to start, not why. A value that
+    /// still reads <c>${...}</c> is a placeholder that Claude Desktop left in place for a setting
+    /// the user never saved, so it counts as unset.
     /// </remarks>
-    public static ServerSettings FromVariables(Func<string, string?> getVariable, string home, ICollection<string> warnings)
+    public static ServerSettings FromVariables(Func<string, string?> getVariable, string home, ICollection<string> warnings, IReadOnlyList<string>? allowedRoots = null)
     {
         // Not LocalApplicationData: on Windows, MSIX-packaged clients such as Claude Desktop see a
         // virtualized AppData, so models stored there by other processes are invisible to the server.
@@ -84,6 +88,13 @@ internal sealed record ServerSettings
         {
             warnings.Add($"LOCAL_WHISPER_RUNTIME '{runtime}' isn't auto, cpu, vulkan, or cuda; using auto.");
             runtime = "auto";
+        }
+
+        // The Claude Desktop extension offers a GPU checkbox, because its settings can't show a list
+        // of runtimes. Turning the GPU off overrides LOCAL_WHISPER_RUNTIME.
+        if (!GetBoolean("LOCAL_WHISPER_USE_GPU", true))
+        {
+            runtime = "cpu";
         }
 
         var idleMinutes = 10.0;
@@ -112,25 +123,14 @@ internal sealed record ServerSettings
             }
         }
 
-        var autoDownload = true;
-        if (Get("LOCAL_WHISPER_AUTO_DOWNLOAD") is { } download)
-        {
-            switch (download.ToLowerInvariant())
-            {
-                case "true" or "1" or "yes":
-                    autoDownload = true;
-                    break;
-                case "false" or "0" or "no":
-                    autoDownload = false;
-                    break;
-                default:
-                    warnings.Add($"LOCAL_WHISPER_AUTO_DOWNLOAD '{download}' isn't true or false; using true.");
-                    break;
-            }
-        }
+        var autoDownload = GetBoolean("LOCAL_WHISPER_AUTO_DOWNLOAD", true);
 
+        var chosenRoots = (allowedRoots ?? []).Where(root => !string.IsNullOrWhiteSpace(root) && !IsPlaceholder(root)).ToList();
+        var (rootSource, rootValues) = chosenRoots.Count > 0
+            ? ("--allowed-roots", chosenRoots)
+            : ("LOCAL_WHISPER_ALLOWED_ROOTS", [.. (Get("LOCAL_WHISPER_ALLOWED_ROOTS") ?? home).Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)]);
         var roots = new List<string>();
-        foreach (var root in (Get("LOCAL_WHISPER_ALLOWED_ROOTS") ?? home).Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        foreach (var root in rootValues.Select(root => root.Trim()))
         {
             var expanded = ExpandHome(root, home);
             if (Path.IsPathFullyQualified(expanded))
@@ -139,13 +139,13 @@ internal sealed record ServerSettings
             }
             else
             {
-                warnings.Add($"LOCAL_WHISPER_ALLOWED_ROOTS ignores '{root}' because it isn't an absolute path.");
+                warnings.Add($"{rootSource} ignores '{root}' because it isn't an absolute path.");
             }
         }
 
         if (roots.Count == 0)
         {
-            warnings.Add($"LOCAL_WHISPER_ALLOWED_ROOTS has no absolute paths; allowing {home}.");
+            warnings.Add($"{rootSource} has no absolute paths; allowing {home}.");
             roots.Add(Path.GetFullPath(home));
         }
 
@@ -162,7 +162,23 @@ internal sealed record ServerSettings
             AutoDownload = autoDownload,
         };
 
-        string? Get(string name) => getVariable(name) is { } value && value.Trim() is { Length: > 0 } trimmed ? trimmed : null;
+        string? Get(string name) => getVariable(name) is { } value && value.Trim() is { Length: > 0 } trimmed && !IsPlaceholder(trimmed) ? trimmed : null;
+
+        bool GetBoolean(string name, bool fallback)
+        {
+            switch (Get(name)?.ToLowerInvariant())
+            {
+                case null:
+                    return fallback;
+                case "true" or "1" or "yes":
+                    return true;
+                case "false" or "0" or "no":
+                    return false;
+                case var other:
+                    warnings.Add($"{name} '{other}' isn't true or false; using {(fallback ? "true" : "false")}.");
+                    return fallback;
+            }
+        }
 
         string GetDirectory(string name, string fallback)
         {
@@ -176,6 +192,8 @@ internal sealed record ServerSettings
             return Path.GetFullPath(fallback);
         }
     }
+
+    private static bool IsPlaceholder(string value) => value.StartsWith("${", StringComparison.Ordinal) && value.EndsWith('}');
 
     // Shells expand ~, but MCP clients pass environment variables verbatim.
     private static string ExpandHome(string path, string home) =>

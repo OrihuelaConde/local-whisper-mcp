@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "local-whisper-mcp",
   "display_name": "Local Whisper",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Transcribes audio files on your computer with Whisper, for Claude. The audio never leaves the machine.",
   "author": {
     "name": "José Luis Orihuela Conde",
@@ -19,12 +19,13 @@
     "entry_point": "server/local-whisper-mcp.exe",
     "mcp_config": {
       "command": "${__dirname}/server/local-whisper-mcp.exe",
-      "args": [],
+      "args": ["--allowed-roots", "${user_config.allowed_folders}"],
       "env": {
         "LOCAL_WHISPER_MODEL": "${user_config.model}",
         "LOCAL_WHISPER_LANGUAGE": "${user_config.language}",
-        "LOCAL_WHISPER_RUNTIME": "${user_config.runtime}",
-        "LOCAL_WHISPER_IDLE_MINUTES": "${user_config.idle_minutes}"
+        "LOCAL_WHISPER_USE_GPU": "${user_config.use_gpu}",
+        "LOCAL_WHISPER_IDLE_MINUTES": "${user_config.idle_minutes}",
+        "LOCAL_WHISPER_AUTO_DOWNLOAD": "${user_config.auto_download}"
       }
     }
   },
@@ -39,33 +40,49 @@
     }
   ],
   "user_config": {
+    "allowed_folders": {
+      "type": "directory",
+      "title": "Folders with audio",
+      "description": "Folders where Claude may transcribe audio. Leave it empty to allow your whole user folder. Audio that Claude copies from a chat always goes through the server's own inbox folder.",
+      "required": false,
+      "multiple": true
+    },
     "model": {
       "type": "string",
       "title": "Model",
-      "description": "Whisper model, such as large-v3-turbo-q8_0 or base. The server downloads it to ~/.local-whisper-mcp/models on first use.",
+      "description": "Keep large-v3-turbo-q8_0, the best balance of speed and accuracy. Use large-v3-turbo-q5_0 if the graphics card is short of memory, or base on a computer without a graphics card. The server downloads the model the first time it's used.",
       "required": false,
       "default": "large-v3-turbo-q8_0"
     },
     "language": {
       "type": "string",
-      "title": "Default language",
-      "description": "Language code, such as en or es, or auto to detect it.",
+      "title": "Language",
+      "description": "Leave it empty to detect the language of each audio, or enter a code such as en or es to always use that language.",
       "required": false,
-      "default": "auto"
+      "default": ""
     },
-    "runtime": {
-      "type": "string",
-      "title": "Runtime",
-      "description": "auto, cpu, or vulkan. A GPU runtime that can't load falls back to the CPU.",
+    "use_gpu": {
+      "type": "boolean",
+      "title": "Use the graphics card",
+      "description": "Transcribe on the graphics card when there's one that works, which is many times faster. Turn it off to use only the processor.",
       "required": false,
-      "default": "auto"
+      "default": true
     },
     "idle_minutes": {
-      "type": "string",
-      "title": "Idle minutes",
-      "description": "Minutes without calls before the model is released from memory, including GPU memory.",
+      "type": "number",
+      "title": "Minutes before freeing memory",
+      "description": "Minutes without transcriptions before the model leaves memory, including the graphics card's memory, so games and other apps can use it. Enter 0 to free it after every transcription.",
       "required": false,
-      "default": "10"
+      "default": 10,
+      "min": 0,
+      "max": 1440
+    },
+    "auto_download": {
+      "type": "boolean",
+      "title": "Download models automatically",
+      "description": "Download a missing model from Hugging Face the first time it's needed. Downloading models is the only time the server connects to the internet.",
+      "required": false,
+      "default": true
     }
   },
   "compatibility": {
