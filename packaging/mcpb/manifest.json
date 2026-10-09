@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "local-whisper-mcp",
   "display_name": "Local Whisper",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "description": "Transcribes audio files on your computer with Whisper, for Claude. The audio never leaves the machine.",
   "author": {
     "name": "José Luis Orihuela Conde",
@@ -36,7 +36,8 @@
         "LOCAL_WHISPER_LANGUAGE": "${user_config.language}",
         "LOCAL_WHISPER_USE_GPU": "${user_config.use_gpu}",
         "LOCAL_WHISPER_IDLE_MINUTES": "${user_config.idle_minutes}",
-        "LOCAL_WHISPER_AUTO_DOWNLOAD": "${user_config.auto_download}"
+        "LOCAL_WHISPER_AUTO_DOWNLOAD": "${user_config.auto_download}",
+        "LOCAL_WHISPER_FFMPEG": "${user_config.ffmpeg}"
       }
     }
   },
@@ -98,6 +99,12 @@
       "description": "Download a missing model from Hugging Face the first time it's needed. Downloading models is the only time the server connects to the internet.",
       "required": false,
       "default": true
+    },
+    "ffmpeg": {
+      "type": "file",
+      "title": "ffmpeg (optional)",
+      "description": "Pick the ffmpeg program only if Local Whisper doesn't find it on its own. ffmpeg adds M4A, FLAC, and video files.",
+      "required": false
     }
   },
   "compatibility": {

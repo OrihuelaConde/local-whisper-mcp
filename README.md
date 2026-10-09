@@ -115,6 +115,7 @@ clients, set them as environment variables:
 | `LOCAL_WHISPER_MODELS_DIR` | `~/.local-whisper-mcp/models` | Folder for the downloaded models. |
 | `LOCAL_WHISPER_AUTO_DOWNLOAD` | `true` | `false` stops the server from downloading missing models. |
 | `LOCAL_WHISPER_THREADS` | Up to 8 | CPU threads for transcription. |
+| `LOCAL_WHISPER_FFMPEG` | Found automatically | Full path of the ffmpeg executable. Without it, the server looks on the `PATH` and in the folders of winget, Scoop, Chocolatey, Homebrew, and MacPorts. |
 
 To download a model before its first use, for example on a slow connection, run the executable with
 the `download` command:
