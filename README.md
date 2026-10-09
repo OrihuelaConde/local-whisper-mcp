@@ -32,8 +32,10 @@ Each section below names the file it needs.
 To add Local Whisper to Claude Desktop, install its extension:
 
 1. Download the extension for your system: `local-whisper-mcp-VERSION-win-x64.mcpb` for Windows,
-   `local-whisper-mcp-VERSION-osx-arm64.mcpb` for Apple Silicon Macs, or
-   `local-whisper-mcp-VERSION-osx-x64.mcpb` for Intel Macs.
+   `local-whisper-mcp-VERSION-osx-arm64.mcpb` for Apple Silicon Macs,
+   `local-whisper-mcp-VERSION-osx-x64.mcpb` for Intel Macs, or
+   `local-whisper-mcp-VERSION-linux-x64.mcpb` and `local-whisper-mcp-VERSION-linux-arm64.mcpb` for
+   [Claude Desktop on Linux](https://code.claude.com/docs/en/desktop-linux), which is in beta.
 2. Open the file. Claude Desktop shows the extension's details.
 3. Click **Install**.
 4. Optional: In the extension's settings, choose the folders with your audio, the model, and the

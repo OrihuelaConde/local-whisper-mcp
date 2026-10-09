@@ -7,6 +7,11 @@ version's section as its release notes.
 
 ## [Unreleased]
 
+### Added
+
+- Claude Desktop extension (`.mcpb`) for Linux x64 and arm64, for the beta of Claude Desktop on
+  Ubuntu and Debian.
+
 ## [1.0.0] - 2026-10-09
 
 The first public release. Versions before 1.0.0 were internal test builds.
