@@ -130,6 +130,7 @@ internal sealed class WhisperHost : IDisposable
             Models.ModelsDirectory,
             Settings.InboxDirectory,
             Settings.AllowedRoots,
+            Settings.LogsDirectory,
             Ffmpeg.IsAvailable());
     }
 
@@ -183,6 +184,7 @@ internal sealed class WhisperHost : IDisposable
 /// <param name="ModelsDirectory">The directory that holds the models.</param>
 /// <param name="Inbox">The directory to copy audio into when it isn't on this computer yet; the server deletes each file after transcribing it.</param>
 /// <param name="AllowedRoots">The other directories that transcribe may read audio from; the server never deletes files there.</param>
+/// <param name="Logs">The directory with the server's log files, one per day, kept for a week.</param>
 /// <param name="Ffmpeg"><see langword="true"/> if ffmpeg is on the <c>PATH</c>, which adds formats such as M4A and FLAC.</param>
 internal sealed record HostStatus(
     string Version,
@@ -197,4 +199,5 @@ internal sealed record HostStatus(
     string ModelsDirectory,
     string Inbox,
     IReadOnlyList<string> AllowedRoots,
+    string Logs,
     bool Ffmpeg);

@@ -12,9 +12,24 @@ public sealed class TranscriptFormatterTests
         "es");
 
     [Fact]
-    public void Text_joins_the_segments()
+    public void Text_starts_a_paragraph_after_a_long_pause()
     {
-        Assert.Equal("Hola, ¿cómo andás? Todo bien.", TranscriptFormatter.Format(Result, "txt"));
+        Assert.Equal("Hola, ¿cómo andás?\n\nTodo bien.", TranscriptFormatter.Format(Result, "txt"));
+    }
+
+    [Fact]
+    public void Text_joins_segments_separated_by_short_pauses()
+    {
+        var result = new TranscriptionResult(
+            [
+                new TranscriptSegment(TimeSpan.Zero, TimeSpan.FromSeconds(2), "Primera frase."),
+                new TranscriptSegment(TimeSpan.FromSeconds(3.9), TimeSpan.FromSeconds(5), "Segunda frase."),
+            ],
+            [],
+            TimeSpan.FromSeconds(5),
+            "es");
+
+        Assert.Equal("Primera frase. Segunda frase.", TranscriptFormatter.Format(result, "txt"));
     }
 
     [Fact]

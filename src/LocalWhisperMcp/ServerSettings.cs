@@ -34,6 +34,9 @@ internal sealed record ServerSettings
     /// </remarks>
     public required string InboxDirectory { get; init; }
 
+    /// <summary>Gets the directory for the server's log files.</summary>
+    public required string LogsDirectory { get; init; }
+
     /// <summary>Gets every directory that the server may read audio from: the allowed roots and the inbox.</summary>
     public IReadOnlyList<string> ReadableRoots => [.. AllowedRoots, InboxDirectory];
 
@@ -158,6 +161,7 @@ internal sealed record ServerSettings
             IdleTimeout = TimeSpan.FromMinutes(idleMinutes),
             AllowedRoots = roots,
             InboxDirectory = inboxDirectory,
+            LogsDirectory = Path.GetFullPath(Path.Combine(home, ".local-whisper-mcp", "logs")),
             Threads = threads,
             AutoDownload = autoDownload,
         };

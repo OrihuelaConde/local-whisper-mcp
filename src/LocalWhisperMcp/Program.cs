@@ -45,6 +45,9 @@ builder.Logging.AddSimpleConsole(options =>
     options.ColorBehavior = LoggerColorBehavior.Disabled;
 });
 builder.Services.Configure<ConsoleLoggerOptions>(options => options.LogToStandardErrorThreshold = LogLevel.Trace);
+var fileLogs = new FileLoggerProvider(settings.LogsDirectory);
+fileLogs.DeleteOldFiles();
+builder.Logging.AddProvider(fileLogs);
 
 // The SDK and the host log every request and lifetime event; the server's own messages are the useful ones.
 builder.Logging.AddFilter("ModelContextProtocol", LogLevel.Warning);

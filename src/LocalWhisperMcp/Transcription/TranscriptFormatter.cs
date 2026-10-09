@@ -20,6 +20,9 @@ internal static class TranscriptFormatter
     /// <summary>The plain-text transcript of audio without speech.</summary>
     public const string NoSpeech = "[no speech detected]";
 
+    /// <summary>The silence between two segments that starts a new paragraph in the plain-text format.</summary>
+    public static readonly TimeSpan ParagraphPause = TimeSpan.FromSeconds(2);
+
     /// <summary>Gets the supported format names.</summary>
     public static IReadOnlyList<string> Formats { get; } = ["txt", "srt", "json"];
 
@@ -30,7 +33,7 @@ internal static class TranscriptFormatter
     /// <exception cref="ArgumentException">The format isn't supported.</exception>
     public static string Format(TranscriptionResult result, string format) => format switch
     {
-        "txt" => result.Segments.Count == 0 ? NoSpeech : string.Join(' ', result.Segments.Select(s => s.Text)),
+        "txt" => result.Segments.Count == 0 ? NoSpeech : ToText(result.Segments),
         "srt" => ToSrt(result.Segments),
         "json" => JsonSerializer.Serialize(
             new TranscriptJson(
@@ -40,6 +43,20 @@ internal static class TranscriptFormatter
             Json.TranscriptJson),
         _ => throw new ArgumentException($"Unknown format '{format}'.", nameof(format)),
     };
+
+    // A long recording as one block of text is hard to read; pauses usually mark a change of topic
+    // or speaker, so each pause of ParagraphPause or longer starts a paragraph.
+    private static string ToText(IReadOnlyList<TranscriptSegment> segments)
+    {
+        var builder = new StringBuilder(segments[0].Text);
+        for (var i = 1; i < segments.Count; i++)
+        {
+            builder.Append(segments[i].Start - segments[i - 1].End >= ParagraphPause ? "\n\n" : " ");
+            builder.Append(segments[i].Text);
+        }
+
+        return builder.ToString();
+    }
 
     private static string ToSrt(IReadOnlyList<TranscriptSegment> segments)
     {
