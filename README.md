@@ -8,8 +8,10 @@ that run on your computer.
 ## Features
 
 - Transcribes WAV, Ogg Opus (WhatsApp and Telegram voice notes), and MP3 files with no extra
-  software. With [ffmpeg](https://ffmpeg.org) on the `PATH`, it also reads M4A, FLAC, and the
-  audio of video files.
+  software. With [ffmpeg](https://ffmpeg.org) on the `PATH`, it also reads M4A and FLAC.
+- Transcribes videos, such as MP4 and WebM files, when ffmpeg is installed: the server takes the
+  audio track and ignores the picture. Turn a recorded meeting or class into text or subtitles
+  without extracting the audio first.
 - Runs on the GPU through Vulkan on Windows and Linux and through Metal on Apple Silicon, and falls
   back to the CPU on its own. With the default model, `large-v3-turbo-q8_0`, an NVIDIA GeForce
   RTX 3080 transcribes a minute of audio in about one second.
@@ -82,7 +84,11 @@ Ask Claude in your own words. For example:
 
 - "Transcribe the voice note I just attached."
 - "Transcribe `C:\Users\me\Recordings\meeting.m4a` and summarize the decisions."
-- "Make Spanish subtitles for `~/Videos/class.mp3`."
+- "Make Spanish subtitles for `~/Videos/class.mp4`."
+
+Video files are much larger than audio files. When a video is already on your computer, give
+Claude its path instead of attaching it to the chat, so it doesn't have to travel through the chat
+and back.
 
 The server provides three tools:
 
