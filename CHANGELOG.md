@@ -7,6 +7,11 @@ version's section as its release notes.
 
 ## [Unreleased]
 
+### Added
+
+- Claude Code plugin with the Local Whisper skill, listed in the `orihuelaconde` marketplace
+  (`OrihuelaConde/claude-plugins`).
+
 ## [1.0.0] - 2026-10-09
 
 The first public release. Versions before 1.0.0 were internal test builds.

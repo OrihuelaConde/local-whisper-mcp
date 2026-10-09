@@ -1,0 +1,11 @@
+{
+  "name": "local-whisper",
+  "displayName": "Local Whisper",
+  "version": "1.0.0",
+  "description": "Skill for the Local Whisper MCP server: tells Claude how to transcribe audio and video with Whisper on your computer, and how to connect the server when it isn't reachable",
+  "author": { "name": "OrihuelaConde", "url": "https://github.com/OrihuelaConde" },
+  "homepage": "https://github.com/OrihuelaConde/local-whisper-mcp",
+  "repository": "https://github.com/OrihuelaConde/local-whisper-mcp",
+  "license": "MIT",
+  "keywords": ["whisper", "transcription", "speech-to-text", "subtitles", "mcp", "local", "privacy"]
+}
