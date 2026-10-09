@@ -46,7 +46,7 @@ internal static class Inbox
         try
         {
             File.Delete(path);
-            logger.LogInformation("Deleted {File} from the inbox.", Path.GetFileName(path));
+            logger.LogInformation("Deleted a file from the inbox.");
             return true;
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)

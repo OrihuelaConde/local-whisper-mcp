@@ -42,7 +42,7 @@ internal static class AudioDecoder
                 throw new AudioDecodingException($"Couldn't decode {Path.GetFileName(path)} as {format}: {exception.Message} Installing ffmpeg would add another decoder to try.", exception);
             }
 
-            logger.LogInformation("The {Format} decoder failed on {File} ({Message}); trying ffmpeg.", format, Path.GetFileName(path), exception.Message);
+            logger.LogInformation("The {Format} decoder failed ({Message}); trying ffmpeg.", format, exception.Message);
             return await Ffmpeg.DecodeAsync(path, SampleRate, cancellationToken);
         }
     }

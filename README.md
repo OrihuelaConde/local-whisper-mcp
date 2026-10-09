@@ -123,8 +123,9 @@ local-whisper-mcp download large-v3-turbo-q8_0
   Hugging Face, which you can turn off with `LOCAL_WHISPER_AUTO_DOWNLOAD=false`.
 - The server reads audio only inside the allowed folders and the inbox, and it deletes only files in
   the inbox: each one after transcribing it, and any left there for more than a day.
-- The log in `~/.local-whisper-mcp/logs` records file names, timings, and errors, never transcripts.
-  The server keeps a week of logs.
+- The log in `~/.local-whisper-mcp/logs` records timings, settings, and errors, never transcripts.
+  Routine entries leave out file names, but an error entry can include the path of the file that
+  failed, so review the log before you share it. The server keeps a week of logs.
 
 ## Requirements
 

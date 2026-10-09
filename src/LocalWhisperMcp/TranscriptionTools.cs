@@ -82,7 +82,7 @@ internal sealed class TranscriptionTools
         {
             var spread = AudioQuality.MeasureSpreadDb(samples);
             useVad = spread >= AudioQuality.CleanSpreadDb;
-            logger.LogInformation("The level spread of {File} is {Spread:F1} dB, so VAD is {State}.", Path.GetFileName(audioPath), spread, useVad ? "on" : "off");
+            logger.LogInformation("The level spread is {Spread:F1} dB, so VAD is {State}.", spread, useVad ? "on" : "off");
         }
 
         var vadPath = useVad ? await TryEnsureVadModelAsync(host, logger, cancellationToken) : null;
@@ -92,8 +92,9 @@ internal sealed class TranscriptionTools
         {
             var result = await host.TranscribeAsync(modelPath, samples, language, vadPath, new PercentProgress(progress), cancellationToken);
             logger.LogInformation(
-                "Transcribed {Seconds:F1} s of audio ({Speech:F1} s of speech) with {Model} on {Device} in {Elapsed:F2} s.",
+                "Transcribed {Seconds:F1} s of {Extension} audio ({Speech:F1} s of speech) with {Model} on {Device} in {Elapsed:F2} s.",
                 result.Duration.TotalSeconds,
+                Path.GetExtension(audioPath).ToLowerInvariant(),
                 result.Speech.Sum(s => (s.End - s.Start).TotalSeconds),
                 modelName,
                 NativeRuntime.Device,
