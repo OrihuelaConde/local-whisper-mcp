@@ -171,3 +171,5 @@ Local Whisper is released under the [MIT License](LICENSE). It includes componen
 licenses, listed in [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt).
 
 Local Whisper is an independent project, not affiliated with or endorsed by Anthropic or OpenAI.
+Claude is a trademark of Anthropic, PBC, and this project uses the name only to say which apps it
+works with.
