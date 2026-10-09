@@ -1,0 +1,139 @@
+# Builds the release assets when a version tag (v1.2.3) is pushed: a Native AOT archive per RID
+# and a Claude Desktop extension (.mcpb) for Windows and macOS. Each build runs the tests and
+# transcribes a sample through MCP first. The release is created as a draft to review and publish
+# by hand.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: ${{ matrix.rid }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - os: windows-2025
+            rid: win-x64
+            mcpb: true
+          - os: ubuntu-24.04
+            rid: linux-x64
+            mcpb: false
+          - os: ubuntu-24.04-arm
+            rid: linux-arm64
+            mcpb: false
+          - os: macos-15
+            rid: osx-arm64
+            mcpb: true
+          - os: macos-15-intel
+            rid: osx-x64
+            mcpb: true
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Check that the tag matches the project version
+        run: |
+          $version = '${{ github.ref_name }}'.TrimStart('v')
+          $project = ([xml](Get-Content src/LocalWhisperMcp/LocalWhisperMcp.csproj)).Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
+          $manifest = (Get-Content packaging/mcpb/manifest.json -Raw | ConvertFrom-Json).version
+          if ($version -ne $project -or $version -ne $manifest) {
+            Write-Error "The tag says $version, the project $project, and the manifest $manifest."
+            exit 1
+          }
+
+      - name: Install Native AOT prerequisites
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
+
+      - name: Run the unit tests
+        run: dotnet test --project tests/LocalWhisperMcp.Tests
+
+      - name: Publish with Native AOT
+        run: |
+          if ($IsWindows) { $env:PATH = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer;$env:PATH" }
+          dotnet publish src/LocalWhisperMcp -c Release -r ${{ matrix.rid }} -o out
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Transcribe a sample through the MCP server
+        env:
+          LOCAL_WHISPER_MODELS_DIR: ${{ runner.temp }}/models
+          LOCAL_WHISPER_MODEL: tiny
+          LOCAL_WHISPER_ALLOWED_ROOTS: ${{ runner.temp }}/audio
+        run: |
+          $server = Resolve-Path (Join-Path out ($IsWindows ? 'local-whisper-mcp.exe' : 'local-whisper-mcp'))
+          & $server download tiny
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          New-Item -ItemType Directory -Force $env:LOCAL_WHISPER_ALLOWED_ROOTS | Out-Null
+          $audio = Join-Path $env:LOCAL_WHISPER_ALLOWED_ROOTS 'jfk.wav'
+          Invoke-WebRequest https://raw.githubusercontent.com/ggml-org/whisper.cpp/master/samples/jfk.wav -OutFile $audio
+          @(
+            @{ name = 'status' }
+            @{ name = 'transcribe'; arguments = @{ path = $audio; language = 'en' } }
+          ) | ConvertTo-Json -Depth 5 | Set-Content calls.json
+          & ($IsWindows ? 'python' : 'python3') scripts/mcp_smoke.py $server calls.json "ask not what your country can do for you"
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Package the release assets
+        run: |
+          $version = '${{ github.ref_name }}'.TrimStart('v')
+          $name = "local-whisper-mcp-$version-${{ matrix.rid }}"
+          Remove-Item out/*.pdb, out/*.dbg -ErrorAction SilentlyContinue
+          Remove-Item out/*.dSYM -Recurse -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force dist | Out-Null
+          if ($IsWindows) {
+            Compress-Archive -Path out/* -DestinationPath "dist/$name.zip"
+          }
+          else {
+            # tar keeps the executable bit.
+            tar -czf "dist/$name.tar.gz" -C out .
+          }
+          if ('${{ matrix.mcpb }}' -eq 'true') {
+            pwsh packaging/mcpb/pack.ps1 -Rid ${{ matrix.rid }} -PublishDir out -OutDir dist
+          }
+          Get-ChildItem dist | Select-Object Name, Length | Format-Table -AutoSize
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.rid }}
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Pack the skill for claude.ai
+        run: cd skills && zip -qr ../dist/local-whisper-skill.zip local-whisper
+
+      - name: Create a draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd dist
+          sha256sum * > SHA256SUMS.txt
+          gh release create "${{ github.ref_name }}" ./* \
+            --draft \
+            --generate-notes \
+            --title "Local Whisper MCP ${GITHUB_REF_NAME#v}"
