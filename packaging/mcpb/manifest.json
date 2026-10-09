@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "local-whisper-mcp",
   "display_name": "Local Whisper",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Transcribes audio files on your computer with Whisper, for Claude. The audio never leaves the machine.",
   "author": {
     "name": "José Luis Orihuela Conde",
@@ -104,5 +104,6 @@
     "platforms": [
       "win32"
     ]
-  }
+  },
+  "license": "MIT"
 }

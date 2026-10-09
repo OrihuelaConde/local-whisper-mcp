@@ -4,7 +4,7 @@
     <OutputType>Exe</OutputType>
     <AssemblyName>local-whisper-mcp</AssemblyName>
     <RootNamespace>LocalWhisperMcp</RootNamespace>
-    <Version>0.5.0</Version>
+    <Version>0.5.1</Version>
     <PublishAot>true</PublishAot>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
@@ -21,6 +21,11 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="LocalWhisperMcp.Tests" />
+  </ItemGroup>
+
+  <!-- The licenses travel with every published copy, including the Claude Desktop extension. -->
+  <ItemGroup>
+    <None Include="..\..\LICENSE;..\..\THIRD-PARTY-NOTICES.txt" Link="%(Filename)%(Extension)" CopyToPublishDirectory="PreserveNewest" Visible="false" />
   </ItemGroup>
 
   <!--
