@@ -20,7 +20,30 @@ internal static partial class NativeRuntime
     public static string? Loaded => RuntimeOptions.LoadedLibrary?.ToString();
 
     /// <summary>Gets the device that runs the model: a GPU name, <c>CPU</c>, or <see langword="null"/> before the first model loads.</summary>
-    public static string? Device => Loaded is null ? null : gpuBackend is null ? "CPU" : $"{gpuName ?? gpuBackend} ({Loaded})";
+    public static string? Device => Loaded is null ? null : DescribeDevice(gpuName, gpuBackend);
+
+    /// <summary>Describes the device from what whisper.cpp logged.</summary>
+    /// <param name="name">The GPU name, or <see langword="null"/> if the log didn't name one.</param>
+    /// <param name="backend">The GPU backend in use, such as <c>Vulkan0</c>, or <see langword="null"/> if the model runs on the CPU.</param>
+    /// <returns>A description such as <c>NVIDIA GeForce RTX 3080 (Vulkan)</c> or <c>CPU</c>.</returns>
+    /// <remarks>
+    /// The API comes from the backend, not from the loaded runtime: on Apple Silicon, Metal ships
+    /// inside the CPU runtime.
+    /// </remarks>
+    internal static string DescribeDevice(string? name, string? backend)
+    {
+        if (backend is null)
+        {
+            return "CPU";
+        }
+
+        var api = backend.TrimEnd("0123456789".ToCharArray()) switch
+        {
+            "MTL" => "Metal",
+            var other => other,
+        };
+        return $"{name ?? backend} ({api})";
+    }
 
     /// <summary>Selects the native runtimes that Whisper.net may load, in order of preference.</summary>
     /// <param name="preference">One of <c>auto</c>, <c>cpu</c>, <c>vulkan</c>, or <c>cuda</c>.</param>

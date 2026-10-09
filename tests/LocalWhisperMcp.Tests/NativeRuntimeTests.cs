@@ -17,4 +17,12 @@ public sealed class NativeRuntimeTests
     [InlineData("whisper_backend_init_gpu: no GPU found", null)]
     public void The_gpu_backend_comes_from_the_whisper_log(string message, string? expected) =>
         Assert.Equal(expected, NativeRuntime.ParseGpuBackend(message));
+
+    [Theory]
+    [InlineData("NVIDIA GeForce RTX 3080", "Vulkan0", "NVIDIA GeForce RTX 3080 (Vulkan)")]
+    [InlineData("Apple M2 Pro", "MTL0", "Apple M2 Pro (Metal)")]
+    [InlineData(null, "CUDA0", "CUDA0 (CUDA)")]
+    [InlineData("NVIDIA GeForce RTX 3080", null, "CPU")]
+    public void The_device_names_the_gpu_and_its_api(string? name, string? backend, string expected) =>
+        Assert.Equal(expected, NativeRuntime.DescribeDevice(name, backend));
 }
