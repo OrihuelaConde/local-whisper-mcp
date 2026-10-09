@@ -106,7 +106,9 @@ call reloaded the model in 0.8 s.
   folder settings don't grant each other. `device_bash` blocks `rm` until the user approves
   `device_request_delete_permission`, so the session can't clean up without a second prompt. The
   server in `src/` therefore has an inbox, `~/.local-whisper-mcp/inbox`: it always reads it,
-  reports it in `status`, and deletes each file there after transcribing it.
+  reports it in `status`, and deletes each file there after transcribing it. In a third test, a
+  linked cloud session copied the attachment to the inbox on its own, transcribed it, and told the
+  user that the server deletes it; no copy was left on the PC.
 - **The server on five RIDs.** The `build` workflow
   ([run 37862593657](https://github.com/OrihuelaConde/local-whisper-mcp/actions/runs/37862593657))
   ran the 88 unit tests, published the server in `src/` with Native AOT, downloaded `tiny` with the
