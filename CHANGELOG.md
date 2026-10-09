@@ -7,17 +7,6 @@ version's section as its release notes.
 
 ## [Unreleased]
 
-### Added
-
-- Claude Code plugin with the Local Whisper skill, listed in the `orihuelaconde` marketplace
-  (`OrihuelaConde/claude-plugins`).
-
-### Changed
-
-- When the server isn't reachable from Claude Code, the skill tells the user how to register it
-  with `claude mcp add` instead of giving the steps for claude.ai.
-- The skill also triggers for video files and names the `delete_models` tool.
-
 ## [1.0.0] - 2026-10-09
 
 The first public release. Versions before 1.0.0 were internal test builds.
@@ -51,8 +40,10 @@ The first public release. Versions before 1.0.0 were internal test builds.
 - Claude Desktop extension (`.mcpb`) for Windows and macOS, with a folder picker for the folders
   with audio, checkboxes for the GPU and automatic downloads, a number field for the idle minutes,
   and an optional file picker for ffmpeg.
-- Local Whisper skill for claude.ai, which tells Claude how to use the server in each kind of chat
-  and how to connect it when it isn't reachable.
+- Local Whisper skill, as a zip for claude.ai and as a Claude Code plugin in the `orihuelaconde`
+  marketplace (`OrihuelaConde/claude-plugins`). It tells Claude how to use the server in each kind
+  of chat, and how to connect the server from Claude Code, claude.ai, or the Claude desktop app
+  when it isn't reachable.
 - Settings through environment variables: `LOCAL_WHISPER_MODEL`, `LOCAL_WHISPER_LANGUAGE`,
   `LOCAL_WHISPER_USE_GPU`, `LOCAL_WHISPER_RUNTIME`, `LOCAL_WHISPER_IDLE_MINUTES`,
   `LOCAL_WHISPER_ALLOWED_ROOTS`, `LOCAL_WHISPER_INBOX_DIR`, `LOCAL_WHISPER_MODELS_DIR`,
