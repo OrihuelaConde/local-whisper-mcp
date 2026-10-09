@@ -112,6 +112,56 @@ internal sealed class TranscriptionTools
         "the inbox folder for audio that isn't on this computer yet, and the allowed folders that transcribe may read audio from.")]
     public static HostStatus GetStatus(WhisperHost host) => host.GetStatus();
 
+    /// <summary>Deletes downloaded models to free disk space.</summary>
+    /// <param name="host">The model host, from dependency injection.</param>
+    /// <param name="models">The models to delete, or <see langword="null"/> to delete all of them.</param>
+    /// <returns>What was deleted and how much space it freed.</returns>
+    [McpServerTool(Name = "delete_models", Title = "Delete downloaded models", Destructive = true, Idempotent = true, OpenWorld = false)]
+    [Description(
+        "Deletes downloaded Whisper models to free disk space; status lists them with their sizes. " +
+        "Without model names, it deletes every model, including the voice activity detection model. " +
+        "A deleted model downloads again the next time a transcription needs it. Confirm with the user before calling it.")]
+    public static async Task<string> DeleteModelsAsync(
+        WhisperHost host,
+        [Description("Models to delete, such as base or large-v3-turbo-q5_0. Omit it to delete all of them.")] string[]? models = null)
+    {
+        IReadOnlyList<string> fileNames;
+        if (models is { Length: > 0 })
+        {
+            var names = models.Select(ModelCatalog.Normalize).OfType<string>().ToList();
+            if (names.FirstOrDefault(name => !ModelCatalog.IsValidName(name)) is { } invalid)
+            {
+                throw new McpException($"Invalid model name '{invalid}'.");
+            }
+
+            fileNames = [.. names.Select(ModelCatalog.GetFileName)];
+        }
+        else
+        {
+            fileNames = [.. host.Models.GetModelFiles().Select(file => file.Name)];
+        }
+
+        if (fileNames.Count == 0)
+        {
+            return "There are no downloaded models to delete.";
+        }
+
+        var results = await host.DeleteModelsAsync(fileNames);
+        var deleted = results.Where(result => result.Reason is null).ToList();
+        var lines = new List<string>();
+        if (deleted.Count > 0)
+        {
+            lines.Add($"Deleted {deleted.Count} {(deleted.Count == 1 ? "model" : "models")} and freed {deleted.Sum(result => result.Bytes) / 1e6:N0} MB:");
+            lines.AddRange(deleted.Select(result => $"- {DisplayName(result.FileName)} ({result.Bytes / 1e6:N0} MB)"));
+        }
+
+        lines.AddRange(results.Where(result => result.Reason is not null).Select(result => $"Kept {DisplayName(result.FileName)}: {result.Reason}."));
+        return string.Join('\n', lines);
+
+        static string DisplayName(string fileName) =>
+            fileName == ModelCatalog.VadModelFileName ? "the voice activity detection model" : ModelCatalog.GetModelName(fileName) ?? fileName;
+    }
+
     /// <summary>Gets the path of a model, downloading it first if it's missing and downloads are allowed.</summary>
     /// <param name="host">The model host.</param>
     /// <param name="modelName">The model name.</param>

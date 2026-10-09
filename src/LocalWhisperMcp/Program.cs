@@ -106,4 +106,5 @@ static string Usage() =>
 /// <summary>Serializes the tool results under Native AOT.</summary>
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
 [JsonSerializable(typeof(HostStatus))]
+[JsonSerializable(typeof(string[]))]
 internal sealed partial class ServerJsonContext : JsonSerializerContext;

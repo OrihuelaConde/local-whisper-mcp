@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "local-whisper-mcp",
   "display_name": "Local Whisper",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Transcribes audio files on your computer with Whisper, for Claude. The audio never leaves the machine.",
   "author": {
     "name": "José Luis Orihuela Conde",
@@ -44,6 +44,10 @@
     {
       "name": "transcribe",
       "description": "Transcribes an audio file on this computer with Whisper."
+    },
+    {
+      "name": "delete_models",
+      "description": "Deletes downloaded models to free disk space."
     },
     {
       "name": "status",
