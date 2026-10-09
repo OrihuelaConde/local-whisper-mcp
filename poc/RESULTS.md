@@ -117,6 +117,18 @@ call reloaded the model in 0.8 s.
   GPU, the Vulkan runtime loaded and whisper.cpp fell back to the CPU without any setting. On
   `osx-arm64`, the model ran on the runner's paravirtual GPU through Metal, and the first load took
   19.1 s, in line with the Metal shader compilation noted above.
+- **VAD on a long, quiet recording.** An 85-minute lecture recorded with an iPhone from the
+  audience (AAC, mean level -29.7 dBFS, peaks at 0 dBFS) exposed a VAD limit that the voice notes
+  hid. Without VAD, `large-v3-turbo-q8_0` on Vulkan transcribed it in 90 s (about 1.1 s per audio
+  minute, 3.6 GiB peak RAM, 2.3 GiB of VRAM) into about 9,000 words, with a few repetition loops
+  (about 2% of the words). With VAD, Silero found speech in only 5 of the 85 minutes and the
+  transcript kept 1,000 words. Lowering the threshold barely helped (9% at 0.15), but evening out
+  the loudness first, as ffmpeg's `dynaudnorm` does, raised the detected speech to 39%: the server
+  now normalizes a copy of the audio for detection only (`LoudnessNormalizer`). That brought the
+  VAD transcript to 6,300 words, but it still misses 37% of the sentences that the run without VAD
+  has, in long stretches where Silero detects nothing even at a 0.08 threshold. Merging spans with
+  longer minimum silences added words but also more repetition loops. On the voice notes and the
+  synthetic samples, the normalization changes nothing: same spans, same timestamps.
 - **Unlinked web sessions.** A claude.ai session in the browser that isn't linked to the PC has no
   `mcp__remote-devices__*` tools. Asked to use Local Whisper, it tried to transcribe in its cloud
   container with faster-whisper instead, which the proxy blocked. The skill must rule that out.
