@@ -22,7 +22,7 @@ internal sealed class TranscriptionTools
     /// <param name="model">The model name, or <see langword="null"/> for the default model.</param>
     /// <param name="language">A language code, <c>auto</c>, or <see langword="null"/> for the default language.</param>
     /// <param name="format">One of <c>txt</c>, <c>srt</c>, or <c>json</c>.</param>
-    /// <param name="vad">Whether to transcribe only the spans where voice activity detection finds speech.</param>
+    /// <param name="vad">Whether to transcribe only the spans where voice activity detection finds speech, or <see langword="null"/> to decide from the background noise.</param>
     /// <param name="cancellationToken">The token to cancel the transcription.</param>
     /// <returns>The transcript in the requested format.</returns>
     [McpServerTool(Name = "transcribe", Title = "Transcribe audio", ReadOnly = true, Idempotent = true, OpenWorld = false)]
@@ -40,7 +40,7 @@ internal sealed class TranscriptionTools
         [Description("Whisper model, such as large-v3-turbo-q8_0 or base. Omit it to use the server default, which suits almost every case.")] string? model = null,
         [Description("Language of the audio as a code such as en or es, or auto to detect it. Omit it to use the server default.")] string? language = null,
         [Description("Output: txt for plain text, srt for subtitles, or json for segments with start and end times in seconds.")] string format = "txt",
-        [Description("Skip silence and noise with voice activity detection. It avoids invented text in long pauses; turn it off only if speech goes missing.")] bool vad = true,
+        [Description("Voice activity detection, which skips silence and noise. Omit it: the server turns it on for clean recordings, where it keeps timestamps exact, and off when background noise could hide quiet speech from it. Pass false if speech goes missing, or true to force it.")] bool? vad = null,
         CancellationToken cancellationToken = default)
     {
         var settings = host.Settings;
@@ -76,7 +76,16 @@ internal sealed class TranscriptionTools
         }
 
         var modelPath = await EnsureModelAsync(host, modelName, progress, DownloadWait, cancellationToken);
-        var vadPath = vad ? await TryEnsureVadModelAsync(host, logger, cancellationToken) : null;
+
+        var useVad = vad ?? true;
+        if (vad is null)
+        {
+            var spread = AudioQuality.MeasureSpreadDb(samples);
+            useVad = spread >= AudioQuality.CleanSpreadDb;
+            logger.LogInformation("The level spread of {File} is {Spread:F1} dB, so VAD is {State}.", Path.GetFileName(audioPath), spread, useVad ? "on" : "off");
+        }
+
+        var vadPath = useVad ? await TryEnsureVadModelAsync(host, logger, cancellationToken) : null;
 
         var stopwatch = Stopwatch.StartNew();
         try

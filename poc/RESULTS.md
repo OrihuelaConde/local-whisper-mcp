@@ -129,6 +129,15 @@ call reloaded the model in 0.8 s.
   has, in long stretches where Silero detects nothing even at a 0.08 threshold. Merging spans with
   longer minimum silences added words but also more repetition loops. On the voice notes and the
   synthetic samples, the normalization changes nothing: same spans, same timestamps.
+- **VAD decided by the recording.** The spread between the loud and the quiet 50 ms frames (90th
+  minus 10th percentile of their levels) tells the two kinds of recording apart: the WhatsApp notes
+  measure 41 and 46 dB and the clean synthetic samples about 100 dB, while the lecture and the
+  synthetic samples with background noise measure 18 to 19 dB. When a call doesn't set `vad`, the
+  server uses VAD from 30 dB up and transcribes everything below. With that rule the lecture comes
+  out whole (about 9,000 words, 115 s), and the voice notes keep VAD and their exact timestamps. The
+  cost falls on noisy recordings with long pauses: on the synthetic sample with 30 s of noise, the
+  text is right and nothing is invented, but two segments start at the 30-second window boundaries
+  (30 s and 60 s) instead of at 34.1 s and 72.1 s.
 - **Unlinked web sessions.** A claude.ai session in the browser that isn't linked to the PC has no
   `mcp__remote-devices__*` tools. Asked to use Local Whisper, it tried to transcribe in its cloud
   container with faster-whisper instead, which the proxy blocked. The skill must rule that out.
