@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "local-whisper-mcp",
   "display_name": "Local Whisper",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Transcribes audio files on your computer with Whisper, for Claude. The audio never leaves the machine.",
   "author": {
     "name": "José Luis Orihuela Conde",
@@ -88,7 +88,7 @@
       "title": "Minutes before freeing memory",
       "description": "Minutes without transcriptions before the model leaves memory, including GPU memory, so games and other apps can use it. Enter 0 to free it after every transcription.",
       "required": false,
-      "default": 10,
+      "default": 5,
       "min": 0,
       "max": 1440
     },

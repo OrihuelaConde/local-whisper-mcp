@@ -16,7 +16,7 @@ public sealed class ServerSettingsTests
         Assert.Equal("large-v3-turbo-q8_0", settings.DefaultModel);
         Assert.Equal("auto", settings.DefaultLanguage);
         Assert.Equal("auto", settings.Runtime);
-        Assert.Equal(TimeSpan.FromMinutes(10), settings.IdleTimeout);
+        Assert.Equal(TimeSpan.FromMinutes(5), settings.IdleTimeout);
         Assert.Equal([Home], settings.AllowedRoots);
         Assert.Equal(Path.Combine(Home, ".local-whisper-mcp", "inbox"), settings.InboxDirectory);
         Assert.Equal([Home, settings.InboxDirectory], settings.ReadableRoots);
@@ -82,7 +82,7 @@ public sealed class ServerSettingsTests
         Assert.Equal("large-v3-turbo-q8_0", settings.DefaultModel);
         Assert.Equal("auto", settings.DefaultLanguage);
         Assert.Equal("auto", settings.Runtime);
-        Assert.Equal(TimeSpan.FromMinutes(10), settings.IdleTimeout);
+        Assert.Equal(TimeSpan.FromMinutes(5), settings.IdleTimeout);
         Assert.True(settings.AutoDownload);
         Assert.Equal([Home], settings.AllowedRoots);
     }
@@ -97,7 +97,7 @@ public sealed class ServerSettingsTests
 
         Assert.Empty(warnings);
         Assert.Equal("large-v3-turbo-q8_0", settings.DefaultModel);
-        Assert.Equal(TimeSpan.FromMinutes(10), settings.IdleTimeout);
+        Assert.Equal(TimeSpan.FromMinutes(5), settings.IdleTimeout);
     }
 
     [Theory]

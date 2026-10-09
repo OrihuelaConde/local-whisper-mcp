@@ -97,7 +97,7 @@ internal sealed record ServerSettings
             runtime = "cpu";
         }
 
-        var idleMinutes = 10.0;
+        var idleMinutes = 5.0;
         if (Get("LOCAL_WHISPER_IDLE_MINUTES") is { } idle)
         {
             if (double.TryParse(idle, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed) && parsed >= 0 && parsed <= TimeSpan.MaxValue.TotalMinutes)
