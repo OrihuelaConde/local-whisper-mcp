@@ -9,6 +9,8 @@ version's section as its release notes.
 
 ### Added
 
+- Claude Desktop extension (`.mcpb`) for Linux x64 and arm64, for the beta of Claude Desktop on
+  Ubuntu and Debian.
 - The Local Whisper logo and a short demo video at the start of the README, and the logo's icon in
   the Claude Desktop extension, the Claude Code plugin's listing, and the MCP Registry entry.
 
