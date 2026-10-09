@@ -8,7 +8,7 @@ plan.
 
 | # | Check | Result | Evidence |
 |---|-------|--------|----------|
-| 1 | Minimal MCP server with `ModelContextProtocol` 2.2.0 and `PublishAot` | Go | No IL2xxx or IL3xxx warnings from the SDK. The 14 MB `win-x64` executable answers `initialize` in about 25 ms and serves `tools/list` and `tools/call` over stdio, including real transcriptions. A call from a Claude Code session is pending. |
+| 1 | Minimal MCP server with `ModelContextProtocol` 2.2.0 and `PublishAot` | Go | No IL2xxx or IL3xxx warnings from the SDK. The 14 MB `win-x64` executable answers `initialize` in about 25 ms and serves `tools/list` and `tools/call` over stdio, including real transcriptions. A Claude Code session in the Claude desktop app later called the 0.1.0 extension's `status` and `transcribe` tools on a voice note in the inbox. |
 | 2 | Transcribe a 16 kHz mono WAV under AOT on the CPU runtime | Go | With the x86-64-v3 fix (see [Findings](#findings)), the AOT build loads the CPU runtime and transcribes. `base` on 8 threads: 2.7 s per audio minute, 0.2 s to load, 364 MiB peak RAM, and a word-perfect transcript of the synthetic Spanish note. |
 | 3 | Same as 2 with the CUDA runtime | Postponed | The driver supports CUDA 13.4, but the CUDA Toolkit isn't installed. Vulkan already gives GPU speed without installing anything, so CUDA waits for a reason to need it. |
 | 4 | Same as 2 with `Whisper.net.Runtime.Vulkan`, without the Vulkan SDK | Go | The Vulkan loader that ships with the NVIDIA driver (`vulkan-1.dll`) is enough: whisper.cpp finds the RTX 3080 with cooperative matrix support (`NV_coopmat2`). `base`: 0.75 s per audio minute. The first run on a machine takes about 7 s longer while the driver compiles and caches the shaders. |
