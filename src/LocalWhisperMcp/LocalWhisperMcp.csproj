@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>local-whisper-mcp</AssemblyName>
+    <RootNamespace>LocalWhisperMcp</RootNamespace>
+    <Version>0.1.0</Version>
+    <PublishAot>true</PublishAot>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Concentus" Version="2.2.2" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.12" />
+    <PackageReference Include="ModelContextProtocol" Version="2.2.0" />
+    <PackageReference Include="NLayer" Version="3.0.0" />
+    <PackageReference Include="Whisper.net" Version="1.9.1" />
+    <PackageReference Include="Whisper.net.Runtime" Version="1.9.1" />
+    <PackageReference Include="Whisper.net.Runtime.Vulkan" Version="1.9.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="LocalWhisperMcp.Tests" />
+  </ItemGroup>
+
+  <!--
+    The Whisper.net runtime packages copy the native libraries of every platform into the output.
+    A build for one RID keeps only that platform's libraries: runtimes/<platform>/ for the CPU and
+    runtimes/<backend>/<platform>/ for GPU backends. Whisper.net names macOS folders macos-*.
+  -->
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' != ''">
+    <WhisperPlatform>$(RuntimeIdentifier.Replace('osx-', 'macos-'))</WhisperPlatform>
+  </PropertyGroup>
+
+  <Target Name="KeepWhisperRuntimesOfTargetPlatform" BeforeTargets="AssignTargetPaths" Condition="'$(WhisperPlatform)' != ''">
+    <ItemGroup>
+      <_OtherWhisperRuntimeFile Include="@(None)" Condition="$([System.String]::Copy('%(None.TargetPath)').StartsWith('runtimes/')) and !$([System.String]::Copy('%(None.TargetPath)').Contains('/$(WhisperPlatform)/'))" />
+      <_OtherWhisperRuntimeFile Include="@(None)" Condition="'%(None.TargetPath)' == 'ggml-metal.metal' and !$(RuntimeIdentifier.StartsWith('osx-'))" />
+      <None Remove="@(_OtherWhisperRuntimeFile)" />
+    </ItemGroup>
+  </Target>
+
+</Project>

@@ -484,10 +484,13 @@ $RECYCLE.BIN/
 # local-whisper-mcp
 # Test audio can contain private voice notes. It must never enter the history.
 test-audio/
-# Whisper and VAD models are downloaded on demand.
-models/
+# Whisper and VAD models are downloaded on demand. Anchored to the root so that src/*/Models/,
+# which holds source code, stays tracked on case-insensitive file systems.
+/models/
 ggml-*.bin
 # Proof-of-concept measurement output.
 poc/results/raw/
 # Packed extensions and their staging folder.
 poc/mcpb/out/
+# Packed extensions, skills, and their staging folders.
+packaging/*/out/

@@ -1,0 +1,21 @@
+<Project>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- Show every trim and AOT warning per call site instead of one summary per assembly. -->
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
+  </PropertyGroup>
+
+  <!--
+    Whisper.net picks its CPU runtime with Avx.IsSupported, Avx2.IsSupported, and Fma.IsSupported.
+    Native AOT targets x86-64-v2 by default, where those checks return false, so the loader rejects
+    the AVX runtime. x86-64-v3 enables AVX2 and FMA, which the Whisper.net CPU runtime requires anyway.
+  -->
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' == 'win-x64' or '$(RuntimeIdentifier)' == 'linux-x64' or '$(RuntimeIdentifier)' == 'osx-x64'">
+    <IlcInstructionSet>x86-64-v3</IlcInstructionSet>
+  </PropertyGroup>
+
+</Project>

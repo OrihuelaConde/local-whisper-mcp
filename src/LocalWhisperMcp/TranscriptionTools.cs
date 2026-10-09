@@ -1,0 +1,245 @@
+using System.ComponentModel;
+using System.Diagnostics;
+using Microsoft.Extensions.Logging;
+using ModelContextProtocol;
+using ModelContextProtocol.Server;
+
+namespace LocalWhisperMcp;
+
+/// <summary>Provides the MCP tools of the server.</summary>
+[McpServerToolType]
+internal sealed class TranscriptionTools
+{
+    // MCP clients time out long calls, so a call waits this long for a model download and then
+    // returns, while the download continues in the background.
+    private static readonly TimeSpan DownloadWait = TimeSpan.FromSeconds(40);
+
+    /// <summary>Transcribes an audio file on this machine.</summary>
+    /// <param name="host">The model host, from dependency injection.</param>
+    /// <param name="logger">The logger, from dependency injection.</param>
+    /// <param name="progress">Sends progress notifications to the client, if it asked for them.</param>
+    /// <param name="path">The absolute path to the audio file.</param>
+    /// <param name="model">The model name, or <see langword="null"/> for the default model.</param>
+    /// <param name="language">A language code, <c>auto</c>, or <see langword="null"/> for the default language.</param>
+    /// <param name="format">One of <c>txt</c>, <c>srt</c>, or <c>json</c>.</param>
+    /// <param name="vad">Whether to transcribe only the spans where voice activity detection finds speech.</param>
+    /// <param name="cancellationToken">The token to cancel the transcription.</param>
+    /// <returns>The transcript in the requested format.</returns>
+    [McpServerTool(Name = "transcribe", Title = "Transcribe audio", ReadOnly = true, Idempotent = true, OpenWorld = false)]
+    [Description(
+        "Transcribes an audio file on this computer with Whisper. The audio never leaves the computer. " +
+        "Reads WAV, Ogg Opus (WhatsApp and Telegram voice notes), and MP3; other formats, such as M4A, need ffmpeg. " +
+        "The file must be in the inbox folder or in one of the allowed folders that the status tool lists. " +
+        "To transcribe a file that isn't on this computer yet, such as a chat attachment, copy it into the inbox: " +
+        "the server deletes files in the inbox after transcribing them, so no copy is left behind.")]
+    public static async Task<string> TranscribeAsync(
+        WhisperHost host,
+        ILogger<TranscriptionTools> logger,
+        IProgress<ProgressNotificationValue> progress,
+        [Description("Absolute path to the audio file.")] string path,
+        [Description("Whisper model, such as large-v3-turbo-q8_0 or base. Omit it to use the server default, which suits almost every case.")] string? model = null,
+        [Description("Language of the audio as a code such as en or es, or auto to detect it. Omit it to use the server default.")] string? language = null,
+        [Description("Output: txt for plain text, srt for subtitles, or json for segments with start and end times in seconds.")] string format = "txt",
+        [Description("Skip silence and noise with voice activity detection. It avoids invented text in long pauses; turn it off only if speech goes missing.")] bool vad = true,
+        CancellationToken cancellationToken = default)
+    {
+        var settings = host.Settings;
+        var audioPath = AudioPathPolicy.Resolve(path, settings.ReadableRoots);
+
+        format = format.Trim().ToLowerInvariant();
+        if (!TranscriptFormatter.Formats.Contains(format))
+        {
+            throw new McpException($"Unknown format '{format}'. Use txt, srt, or json.");
+        }
+
+        language = language?.Trim().ToLowerInvariant() is { Length: > 0 } requested ? requested : settings.DefaultLanguage;
+        if (!Languages.IsWellFormed(language))
+        {
+            throw new McpException($"'{language}' isn't a language code. Use a code such as en or es, or auto.");
+        }
+
+        var modelName = NormalizeModelName(model) ?? settings.DefaultModel;
+        if (!ModelCatalog.IsValidName(modelName))
+        {
+            throw new McpException($"Invalid model name '{modelName}'.");
+        }
+
+        // Decoding first reports a file that can't be read before any model download starts.
+        float[] samples;
+        try
+        {
+            samples = await AudioDecoder.DecodeAsync(audioPath, logger, cancellationToken);
+        }
+        catch (AudioDecodingException exception)
+        {
+            throw new McpException(exception.Message, exception);
+        }
+
+        var modelPath = await EnsureModelAsync(host, modelName, progress, DownloadWait, cancellationToken);
+        var vadPath = vad ? await TryEnsureVadModelAsync(host, logger, cancellationToken) : null;
+
+        var stopwatch = Stopwatch.StartNew();
+        try
+        {
+            var result = await host.TranscribeAsync(modelPath, samples, language, vadPath, new PercentProgress(progress), cancellationToken);
+            logger.LogInformation(
+                "Transcribed {Seconds:F1} s of audio ({Speech:F1} s of speech) with {Model} on {Device} in {Elapsed:F2} s.",
+                result.Duration.TotalSeconds,
+                result.Speech.Sum(s => (s.End - s.Start).TotalSeconds),
+                modelName,
+                NativeRuntime.Device,
+                stopwatch.Elapsed.TotalSeconds);
+            var transcript = TranscriptFormatter.Format(result, format);
+
+            // Only a successful transcription consumes the file; after a failure the client can
+            // retry, and Inbox.Prepare removes what's left after a day.
+            Inbox.DeleteIfInside(audioPath, settings.InboxDirectory, logger);
+            return transcript;
+        }
+        catch (ArgumentException exception) when (exception.ParamName == "language")
+        {
+            throw new McpException($"Whisper doesn't support the language '{language}'. Use a code such as en or es, or auto.", exception);
+        }
+    }
+
+    /// <summary>Describes the server: device, models, downloads, and the folders it may read.</summary>
+    /// <param name="host">The model host, from dependency injection.</param>
+    /// <returns>The current status.</returns>
+    [McpServerTool(Name = "status", Title = "Transcription status", ReadOnly = true, Idempotent = true, OpenWorld = false)]
+    [Description(
+        "Reports the device that runs Whisper (a GPU or the CPU), " +
+        "the loaded, default, and installed models, model downloads in progress, " +
+        "the inbox folder for audio that isn't on this computer yet, and the allowed folders that transcribe may read audio from.")]
+    public static HostStatus GetStatus(WhisperHost host) => host.GetStatus();
+
+    /// <summary>Accepts a model name with the file name's prefix and extension, as clients sometimes send it.</summary>
+    /// <param name="model">The model name or file name.</param>
+    /// <returns>The model name, or <see langword="null"/> if none was given.</returns>
+    internal static string? NormalizeModelName(string? model)
+    {
+        var name = model?.Trim();
+        if (string.IsNullOrEmpty(name))
+        {
+            return null;
+        }
+
+        if (name.EndsWith(".bin", StringComparison.OrdinalIgnoreCase))
+        {
+            name = name[..^".bin".Length];
+        }
+
+        return name.StartsWith("ggml-", StringComparison.OrdinalIgnoreCase) ? name["ggml-".Length..] : name;
+    }
+
+    /// <summary>Gets the path of a model, downloading it first if it's missing and downloads are allowed.</summary>
+    /// <param name="host">The model host.</param>
+    /// <param name="modelName">The model name.</param>
+    /// <param name="progress">Receives the download progress.</param>
+    /// <param name="wait">How long to wait for a download before returning while it continues.</param>
+    /// <param name="cancellationToken">The token to stop waiting; it doesn't stop the download.</param>
+    /// <returns>The path of the model file.</returns>
+    /// <exception cref="McpException">The model is missing and can't be downloaded now.</exception>
+    internal static async Task<string> EnsureModelAsync(
+        WhisperHost host,
+        string modelName,
+        IProgress<ProgressNotificationValue> progress,
+        TimeSpan wait,
+        CancellationToken cancellationToken)
+    {
+        var models = host.Models;
+        var fileName = ModelCatalog.GetFileName(modelName);
+        if (!File.Exists(models.GetPath(fileName)))
+        {
+            var installed = models.GetInstalledModels() is { Count: > 0 } list ? string.Join(", ", list) : "none";
+            if (ModelCatalog.GetDownloadUri(fileName) is null)
+            {
+                throw new McpException(
+                    $"Model '{modelName}' isn't installed in {models.ModelsDirectory} and isn't a model this server can download. " +
+                    $"Installed models: {installed}. Downloadable models: {string.Join(", ", ModelCatalog.KnownModels)}.");
+            }
+
+            if (!host.Settings.AutoDownload)
+            {
+                throw new McpException(
+                    $"Model '{modelName}' isn't installed in {models.ModelsDirectory} and automatic downloads are off. " +
+                    $"Installed models: {installed}. Run 'local-whisper-mcp download {modelName}', or set LOCAL_WHISPER_AUTO_DOWNLOAD to true.");
+            }
+        }
+
+        var download = models.Ensure(fileName);
+        var waited = Stopwatch.StartNew();
+        while (!download.Completion.IsCompleted)
+        {
+            var status = download.GetStatus();
+            progress.Report(new ProgressNotificationValue
+            {
+                Progress = status.BytesReceived,
+                Total = status.TotalBytes,
+                Message = $"Downloading the {modelName} model",
+            });
+            if (waited.Elapsed >= wait)
+            {
+                var size = status.TotalBytes is { } total ? $"{total / 1e6:F0} MB, " : string.Empty;
+                var done = status.Percent is { } percent ? $"{percent:F0}% done" : $"{status.BytesReceived / 1e6:F0} MB so far";
+                throw new McpException(
+                    $"The {modelName} model is still downloading ({size}{done}); the download continues in the background. " +
+                    "Call transcribe again in a minute or two, or call status to follow the download.");
+            }
+
+            await Task.WhenAny(download.Completion, Task.Delay(TimeSpan.FromSeconds(1), cancellationToken));
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+
+        try
+        {
+            return await download.Completion;
+        }
+        catch (Exception exception)
+        {
+            throw new McpException(
+                $"Couldn't download the {modelName} model: {exception.Message} " +
+                $"Check the network connection, or download {ModelCatalog.GetDownloadUri(fileName)} into {models.ModelsDirectory}.",
+                exception);
+        }
+    }
+
+    private static async Task<string?> TryEnsureVadModelAsync(WhisperHost host, ILogger logger, CancellationToken cancellationToken)
+    {
+        var models = host.Models;
+        var path = models.GetPath(ModelCatalog.VadModelFileName);
+        if (File.Exists(path))
+        {
+            return path;
+        }
+
+        if (!host.Settings.AutoDownload)
+        {
+            logger.LogWarning("The VAD model isn't installed in {Directory}, and automatic downloads are off; transcribing without VAD.", models.ModelsDirectory);
+            return null;
+        }
+
+        try
+        {
+            // The VAD model is under 1 MB.
+            return await models.Ensure(ModelCatalog.VadModelFileName).Completion.WaitAsync(DownloadWait, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        {
+            logger.LogWarning(exception, "Couldn't get the VAD model; transcribing without VAD.");
+            return null;
+        }
+    }
+
+    /// <summary>Forwards Whisper's percentage to MCP progress notifications.</summary>
+    /// <param name="target">The progress that sends notifications to the client.</param>
+    private sealed class PercentProgress(IProgress<ProgressNotificationValue> target) : IProgress<int>
+    {
+        /// <inheritdoc/>
+        public void Report(int value) => target.Report(new ProgressNotificationValue
+        {
+            Progress = value,
+            Total = 100,
+            Message = "Transcribing",
+        });
+    }
+}

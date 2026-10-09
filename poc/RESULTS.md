@@ -8,7 +8,7 @@ plan.
 
 | # | Check | Result | Evidence |
 |---|-------|--------|----------|
-| 1 | Minimal MCP server with `ModelContextProtocol` 2.2.0 and `PublishAot` | Go | No IL2xxx or IL3xxx warnings from the SDK. The 14 MB `win-x64` executable answers `initialize` in about 25 ms and serves `tools/list` and `tools/call` over stdio, including real transcriptions. A call from a Claude Code session is pending. |
+| 1 | Minimal MCP server with `ModelContextProtocol` 2.2.0 and `PublishAot` | Go | No IL2xxx or IL3xxx warnings from the SDK. The 14 MB `win-x64` executable answers `initialize` in about 25 ms and serves `tools/list` and `tools/call` over stdio, including real transcriptions. A Claude Code session in the Claude desktop app later called the 0.1.0 extension's `status` and `transcribe` tools on a voice note in the inbox. |
 | 2 | Transcribe a 16 kHz mono WAV under AOT on the CPU runtime | Go | With the x86-64-v3 fix (see [Findings](#findings)), the AOT build loads the CPU runtime and transcribes. `base` on 8 threads: 2.7 s per audio minute, 0.2 s to load, 364 MiB peak RAM, and a word-perfect transcript of the synthetic Spanish note. |
 | 3 | Same as 2 with the CUDA runtime | Postponed | The driver supports CUDA 13.4, but the CUDA Toolkit isn't installed. Vulkan already gives GPU speed without installing anything, so CUDA waits for a reason to need it. |
 | 4 | Same as 2 with `Whisper.net.Runtime.Vulkan`, without the Vulkan SDK | Go | The Vulkan loader that ships with the NVIDIA driver (`vulkan-1.dll`) is enough: whisper.cpp finds the RTX 3080 with cooperative matrix support (`NV_coopmat2`). `base`: 0.75 s per audio minute. The first run on a machine takes about 7 s longer while the driver compiles and caches the shaders. |
@@ -16,7 +16,7 @@ plan.
 | 6 | Silero VAD on audio with long pauses | Go | On a synthetic note with 25 s of silence and 30 s of noise, no model invents text, but without VAD timestamps snap to 30-second windows and land 4.1 s and 11.9 s early. With VAD, segments start within 0.2 s of the measured speech onsets (34.11 s and 71.92 s). Joining the speech spans before transcribing makes VAD cheaper, not costlier: `base` on CPU takes 0.8 s with VAD against 1.6 s without it. Hallucinations in real, noisy silence still need a real recording. |
 | 7 | Time per audio minute, RAM, and VRAM for `large-v3-turbo` full, q5_0, and q8_0 | Go | See [Measurements](#measurements). On the RTX 3080 with Vulkan, q8_0 is the best trade-off: 0.95 s per audio minute and 1.3 GiB of VRAM. On the CPU every variant takes 27 to 34 s per audio minute. |
 | 8 | Native AOT publish and a short CPU transcription on Linux and macOS | Go | The `poc-native-aot` workflow ([run 37847187992](https://github.com/OrihuelaConde/local-whisper-mcp/actions/runs/37847187992)) published the MCP server with Native AOT on `linux-x64`, `linux-arm64`, `osx-arm64`, and `osx-x64`, and on each one transcribed the JFK sample with `tiny` through the MCP protocol, word for word. The only IL warning is the known IL3000 from Whisper.net. On `osx-arm64` the first model load took 16.6 s, against 0.04 to 0.11 s elsewhere; see [Findings](#findings). Each job took 1 to 2 minutes. |
-| 9 | Local MCP visible in claude.ai cloud sessions as `mcp__remote-devices__<server>__<tool>` | Go | With the `.mcpb` extension installed in Claude Desktop, a Cowork session in the cloud copied an attached WhatsApp note to the PC, called `transcribe` with its absolute path, and returned the same transcript as the local tests. The exact tool name in the cloud session wasn't checked. See [Findings](#findings) for the folder prompt and the leftover copy. |
+| 9 | Local MCP visible in claude.ai cloud sessions as `mcp__remote-devices__<server>__<tool>` | Go | With the `.mcpb` extension installed in Claude Desktop, a Cowork session in the cloud copied an attached WhatsApp note to the PC, called `transcribe` with its absolute path, and returned the same transcript as the local tests. With the 0.1.0 extension of the server in `src/`, the tools appear as `mcp__remote-devices__Local_Whisper__transcribe` and `mcp__remote-devices__Local_Whisper__status`: the server part comes from the extension's display name. See [Findings](#findings) for the folder prompt and the leftover copy. |
 
 ## Measurements
 
@@ -72,8 +72,16 @@ call reloaded the model in 0.8 s.
   each frame as a single-frame packet, and runs packet loss concealment for empty frames, which is
   what libopus does.
 - **Opus pre-skip and MP3 delay.** The Ogg reader drops the Opus pre-skip and trims the end to the
-  last granule position, so the output lines up with ffmpeg sample for sample. NLayer still doesn't
-  drop the MP3 encoder delay (69 ms in the test file); the final decoder should trim it.
+  last granule position, so the output lines up with ffmpeg sample for sample. NLayer doesn't drop
+  the MP3 encoder delay (69 ms in the test file). The server in `src/` reads the delay and padding
+  from the LAME tag and trims them as ffmpeg does: on the test file, both output 389,020 samples
+  with a correlation of 1.0000.
+- **Whisper.net's WAV downmix.** `WaveParser.GetAvgSamples` returned 0.69 for a stereo file whose
+  channel average is 0.49, √2 times the average. The server in `src/` reads WAV files itself, which
+  also adds 24-bit, 32-bit, floating-point, and `WAVE_FORMAT_EXTENSIBLE` files.
+- **Decoder parity test.** `DecoderParityTests` compares each managed decoder with ffmpeg on the
+  files in the folder that `LOCAL_WHISPER_TEST_AUDIO` names, so private voice notes stay out of the
+  repository. Run it with `-diagnostics` to see the per-file report.
 - **MSIX packages get private views of `AppData`.** Claude Desktop (`Claude_pzs8sxrjxfjjc`) and the
   Python install manager are MSIX packages, and the processes they start inherit their package's
   view of `AppData`. Files that a process under Claude Desktop writes to `%LOCALAPPDATA%` or
@@ -86,8 +94,32 @@ call reloaded the model in 0.8 s.
 - **Cloud sessions copy the audio to the PC first.** Before calling `transcribe`, the Cowork
   session asked the user for access to `~/.local-whisper-mcp` and copied the attachment there as
   `audio-tmp.ogg`. It had no permission to delete the copy afterwards, so the audio stayed on disk.
-  A dedicated inbox folder, which the server empties after each transcription, would make the
-  prompt a one-time approval and avoid leftover copies.
+  A dedicated inbox folder, which the server empties after each transcription, would avoid leftover
+  copies.
+- **How a cloud session hands audio to the server.** A second test with the 0.1.0 extension showed
+  the full flow. The attachment lives in the session's cloud container. The session calls
+  `get_device_info` (no connected folders yet) and `Local_Whisper__status` (allowed roots), picks a
+  folder inside the roots, asks for it with `device_request_folder_access`, copies the file with
+  `device_commit_files`, and calls `transcribe` with the device path. It chose `~/Downloads` by
+  convention. Claude Desktop's own tool descriptions say that folder access and delete permission
+  last only for the session, and that the session's connected folders and a local MCP server's
+  folder settings don't grant each other. `device_bash` blocks `rm` until the user approves
+  `device_request_delete_permission`, so the session can't clean up without a second prompt. The
+  server in `src/` therefore has an inbox, `~/.local-whisper-mcp/inbox`: it always reads it,
+  reports it in `status`, and deletes each file there after transcribing it. In a third test, a
+  linked cloud session copied the attachment to the inbox on its own, transcribed it, and told the
+  user that the server deletes it; no copy was left on the PC.
+- **The server on five RIDs.** The `build` workflow
+  ([run 37862593657](https://github.com/OrihuelaConde/local-whisper-mcp/actions/runs/37862593657))
+  ran the 88 unit tests, published the server in `src/` with Native AOT, downloaded `tiny` with the
+  `download` command, and transcribed the JFK sample through MCP on `win-x64`, `linux-x64`,
+  `linux-arm64`, `osx-x64`, and `osx-arm64`. On the Windows and Linux x64 runners, which have no
+  GPU, the Vulkan runtime loaded and whisper.cpp fell back to the CPU without any setting. On
+  `osx-arm64`, the model ran on the runner's paravirtual GPU through Metal, and the first load took
+  19.1 s, in line with the Metal shader compilation noted above.
+- **Unlinked web sessions.** A claude.ai session in the browser that isn't linked to the PC has no
+  `mcp__remote-devices__*` tools. Asked to use Local Whisper, it tried to transcribe in its cloud
+  container with faster-whisper instead, which the proxy blocked. The skill must rule that out.
 - **`status` before the first call.** The session called `status` before transcribing and reported
   "no GPU assigned" because `device` is `none` until the model loads. `status` should report the
   runtime the server will try first.
