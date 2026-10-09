@@ -43,7 +43,7 @@ The path is done when `transcribe` returns text.
 Transcription stays on the user's computer even when this session could install Whisper or call a speech-to-text service: keeping the audio on the user's machine is the reason they chose Local Whisper. The reply is the steps to connect it, first and short, with at most one sentence on why. Pick the steps by the tools this session has:
 
 - **No device tools** (no `device_commit_files`): the chat isn't running on the user's computer. Tell them to start a new chat in claude.ai, click **+** in the message box, choose **Devices**, and pick their computer under **Run tasks on**; then attach the audio again and ask. The computer must be on, with the Claude desktop app open.
-- **Device tools but no Local Whisper tools**: the chat runs on the computer, but the server isn't installed there. Tell them to install the Local Whisper extension in the Claude desktop app from https://github.com/OrihuelaConde/local-whisper-mcp, then start a new chat on that computer and ask again.
+- **Device tools but no Local Whisper tools**: the chat runs on the computer, but the server isn't installed there. Tell them to install the Local Whisper extension in the Claude desktop app from https://github.com/OrihuelaConde/local-whisper-mcp/releases/latest, then start a new chat on that computer and ask again.
 
 The path is done when the user has the steps for their case.
 

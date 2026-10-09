@@ -124,6 +124,9 @@ jobs:
           path: dist
           merge-multiple: true
 
+      - name: Pack the skill for claude.ai
+        run: cd skills && zip -qr ../dist/local-whisper-skill.zip local-whisper
+
       - name: Create a draft release
         env:
           GH_TOKEN: ${{ github.token }}
