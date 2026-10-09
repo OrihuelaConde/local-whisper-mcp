@@ -492,5 +492,5 @@ ggml-*.bin
 poc/results/raw/
 # Packed extensions and their staging folder.
 poc/mcpb/out/
-# Packed extensions and their staging folders.
-packaging/mcpb/out/
+# Packed extensions, skills, and their staging folders.
+packaging/*/out/
