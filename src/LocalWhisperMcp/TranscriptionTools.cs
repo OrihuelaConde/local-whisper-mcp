@@ -58,7 +58,7 @@ internal sealed class TranscriptionTools
             throw new McpException($"'{language}' isn't a language code. Use a code such as en or es, or auto.");
         }
 
-        var modelName = NormalizeModelName(model) ?? settings.DefaultModel;
+        var modelName = ModelCatalog.Normalize(model) ?? settings.DefaultModel;
         if (!ModelCatalog.IsValidName(modelName))
         {
             throw new McpException($"Invalid model name '{modelName}'.");
@@ -111,25 +111,6 @@ internal sealed class TranscriptionTools
         "the loaded, default, and installed models, model downloads in progress, " +
         "the inbox folder for audio that isn't on this computer yet, and the allowed folders that transcribe may read audio from.")]
     public static HostStatus GetStatus(WhisperHost host) => host.GetStatus();
-
-    /// <summary>Accepts a model name with the file name's prefix and extension, as clients sometimes send it.</summary>
-    /// <param name="model">The model name or file name.</param>
-    /// <returns>The model name, or <see langword="null"/> if none was given.</returns>
-    internal static string? NormalizeModelName(string? model)
-    {
-        var name = model?.Trim();
-        if (string.IsNullOrEmpty(name))
-        {
-            return null;
-        }
-
-        if (name.EndsWith(".bin", StringComparison.OrdinalIgnoreCase))
-        {
-            name = name[..^".bin".Length];
-        }
-
-        return name.StartsWith("ggml-", StringComparison.OrdinalIgnoreCase) ? name["ggml-".Length..] : name;
-    }
 
     /// <summary>Gets the path of a model, downloading it first if it's missing and downloads are allowed.</summary>
     /// <param name="host">The model host.</param>

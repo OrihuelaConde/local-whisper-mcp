@@ -4,7 +4,7 @@
     <OutputType>Exe</OutputType>
     <AssemblyName>local-whisper-mcp</AssemblyName>
     <RootNamespace>LocalWhisperMcp</RootNamespace>
-    <Version>0.2.0</Version>
+    <Version>0.2.1</Version>
     <PublishAot>true</PublishAot>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>

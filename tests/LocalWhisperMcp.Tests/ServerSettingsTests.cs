@@ -133,6 +133,15 @@ public sealed class ServerSettingsTests
     }
 
     [Fact]
+    public void A_model_file_name_from_hugging_face_becomes_the_model_name()
+    {
+        // The extension's settings point users to the file list on Hugging Face.
+        var settings = Read(new() { ["LOCAL_WHISPER_MODEL"] = "ggml-small.en-q8_0.bin" }, []);
+
+        Assert.Equal("small.en-q8_0", settings.DefaultModel);
+    }
+
+    [Fact]
     public void Folders_from_the_command_line_replace_the_allowed_roots_variable()
     {
         var picked = Path.Combine(Path.GetTempPath(), "picked");

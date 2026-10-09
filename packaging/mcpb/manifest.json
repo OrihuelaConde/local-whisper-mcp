@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "local-whisper-mcp",
   "display_name": "Local Whisper",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Transcribes audio files on your computer with Whisper, for Claude. The audio never leaves the machine.",
   "author": {
     "name": "José Luis Orihuela Conde",
@@ -13,13 +13,24 @@
     "url": "https://github.com/OrihuelaConde/local-whisper-mcp"
   },
   "homepage": "https://github.com/OrihuelaConde/local-whisper-mcp",
-  "keywords": ["whisper", "transcription", "speech-to-text", "audio", "voice notes", "local", "offline"],
+  "keywords": [
+    "whisper",
+    "transcription",
+    "speech-to-text",
+    "audio",
+    "voice notes",
+    "local",
+    "offline"
+  ],
   "server": {
     "type": "binary",
     "entry_point": "server/local-whisper-mcp.exe",
     "mcp_config": {
       "command": "${__dirname}/server/local-whisper-mcp.exe",
-      "args": ["--allowed-roots", "${user_config.allowed_folders}"],
+      "args": [
+        "--allowed-roots",
+        "${user_config.allowed_folders}"
+      ],
       "env": {
         "LOCAL_WHISPER_MODEL": "${user_config.model}",
         "LOCAL_WHISPER_LANGUAGE": "${user_config.language}",
@@ -49,29 +60,29 @@
     },
     "model": {
       "type": "string",
-      "title": "Model",
-      "description": "Keep large-v3-turbo-q8_0, the best balance of speed and accuracy. Use large-v3-turbo-q5_0 if the graphics card is short of memory, or base on a computer without a graphics card. The server downloads the model the first time it's used.",
+      "title": "Whisper model",
+      "description": "Keep \"large-v3-turbo-q8_0\", the best balance of speed and accuracy. Use \"large-v3-turbo-q5_0\" if the GPU is short of memory, or \"base\" on a computer without a GPU. You can also enter any model listed at https://huggingface.co/ggerganov/whisper.cpp/tree/main, by name or by file name. The server downloads it the first time it's used.",
       "required": false,
       "default": "large-v3-turbo-q8_0"
     },
     "language": {
       "type": "string",
       "title": "Language",
-      "description": "Leave it empty to detect the language of each audio, or enter a code such as en or es to always use that language.",
+      "description": "Leave it empty to detect the language, or enter a code such as \"es\" or \"en\".",
       "required": false,
       "default": ""
     },
     "use_gpu": {
       "type": "boolean",
-      "title": "Use the graphics card",
-      "description": "Transcribe on the graphics card when there's one that works, which is many times faster. Turn it off to use only the processor.",
+      "title": "Use the GPU",
+      "description": "Transcribe on the GPU when there's one that works, which is many times faster. Turn it off to use only the CPU.",
       "required": false,
       "default": true
     },
     "idle_minutes": {
       "type": "number",
       "title": "Minutes before freeing memory",
-      "description": "Minutes without transcriptions before the model leaves memory, including the graphics card's memory, so games and other apps can use it. Enter 0 to free it after every transcription.",
+      "description": "Minutes without transcriptions before the model leaves memory, including GPU memory, so games and other apps can use it. Enter 0 to free it after every transcription.",
       "required": false,
       "default": 10,
       "min": 0,
@@ -86,6 +97,8 @@
     }
   },
   "compatibility": {
-    "platforms": ["win32"]
+    "platforms": [
+      "win32"
+    ]
   }
 }

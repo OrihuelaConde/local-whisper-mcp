@@ -69,7 +69,7 @@ internal sealed record ServerSettings
         var modelsDirectory = GetDirectory("LOCAL_WHISPER_MODELS_DIR", Path.Combine(home, ".local-whisper-mcp", "models"));
         var inboxDirectory = GetDirectory("LOCAL_WHISPER_INBOX_DIR", Path.Combine(home, ".local-whisper-mcp", "inbox"));
 
-        var defaultModel = Get("LOCAL_WHISPER_MODEL") ?? DefaultModelName;
+        var defaultModel = ModelCatalog.Normalize(Get("LOCAL_WHISPER_MODEL")) ?? DefaultModelName;
         if (!ModelCatalog.IsValidName(defaultModel))
         {
             warnings.Add($"LOCAL_WHISPER_MODEL '{defaultModel}' isn't a valid model name; using {DefaultModelName}.");
