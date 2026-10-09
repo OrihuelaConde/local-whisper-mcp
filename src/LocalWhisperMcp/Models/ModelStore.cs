@@ -46,17 +46,61 @@ internal sealed class ModelStore : IDisposable
 
     /// <summary>Lists the Whisper models in the models directory.</summary>
     /// <returns>The model names, sorted.</returns>
-    public IReadOnlyList<string> GetInstalledModels()
+    public IReadOnlyList<string> GetInstalledModels() => [.. GetInstalledModelSizes().Select(model => model.Name)];
+
+    /// <summary>Lists the Whisper models in the models directory with their sizes.</summary>
+    /// <returns>The models, sorted by name.</returns>
+    public IReadOnlyList<InstalledModel> GetInstalledModelSizes() =>
+        [.. GetModelFiles()
+            .Select(file => (Name: ModelCatalog.GetModelName(file.Name), file.Length))
+            .Where(model => model.Name is not null)
+            .Select(model => new InstalledModel(model.Name!, Math.Round(model.Length / 1e6)))
+            .OrderBy(model => model.Name, StringComparer.Ordinal)];
+
+    /// <summary>Lists every model file in the models directory: the Whisper models and the VAD model.</summary>
+    /// <returns>The files.</returns>
+    public IReadOnlyList<FileInfo> GetModelFiles() =>
+        Directory.Exists(ModelsDirectory) ? [.. new DirectoryInfo(ModelsDirectory).EnumerateFiles("ggml-*.bin")] : [];
+
+    /// <summary>Deletes model files, except those still downloading.</summary>
+    /// <param name="fileNames">The model file names.</param>
+    /// <returns>The outcome for each file.</returns>
+    public IReadOnlyList<ModelDeletion> Delete(IEnumerable<string> fileNames)
     {
-        if (!Directory.Exists(ModelsDirectory))
+        var results = new List<ModelDeletion>();
+        foreach (var fileName in fileNames.Distinct(StringComparer.OrdinalIgnoreCase))
         {
-            return [];
+            lock (gate)
+            {
+                if (downloads.TryGetValue(fileName, out var download) && !download.Completion.IsCompleted)
+                {
+                    results.Add(new ModelDeletion(fileName, 0, "it's still downloading"));
+                    continue;
+                }
+            }
+
+            var file = new FileInfo(GetPath(fileName));
+            if (!file.Exists)
+            {
+                results.Add(new ModelDeletion(fileName, 0, "it isn't installed"));
+                continue;
+            }
+
+            try
+            {
+                var bytes = file.Length;
+                file.Delete();
+                logger.LogInformation("Deleted {File} ({Megabytes:F0} MB).", fileName, bytes / 1e6);
+                results.Add(new ModelDeletion(fileName, bytes, null));
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                logger.LogWarning(exception, "Couldn't delete {File}.", fileName);
+                results.Add(new ModelDeletion(fileName, 0, exception.Message));
+            }
         }
 
-        return [.. Directory.EnumerateFiles(ModelsDirectory, "ggml-*.bin")
-            .Select(path => ModelCatalog.GetModelName(Path.GetFileName(path)))
-            .OfType<string>()
-            .Order(StringComparer.Ordinal)];
+        return results;
     }
 
     /// <summary>Lists the downloads in progress.</summary>
@@ -269,6 +313,17 @@ internal sealed class ModelDownload
         return new DownloadStatus(FileName, received, total, total is > 0 ? Math.Round(100.0 * received / total.Value, 1) : null);
     }
 }
+
+/// <summary>Describes a model in the models directory.</summary>
+/// <param name="Name">The model name.</param>
+/// <param name="Megabytes">The size of the file, in megabytes.</param>
+internal sealed record InstalledModel(string Name, double Megabytes);
+
+/// <summary>Describes the outcome of deleting one model file.</summary>
+/// <param name="FileName">The model file name.</param>
+/// <param name="Bytes">The bytes freed, or 0 if the file wasn't deleted.</param>
+/// <param name="Reason">Why the file wasn't deleted, or <see langword="null"/> if it was.</param>
+internal sealed record ModelDeletion(string FileName, long Bytes, string? Reason);
 
 /// <summary>Describes a model download in progress.</summary>
 /// <param name="File">The model file name.</param>

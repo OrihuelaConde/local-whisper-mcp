@@ -55,8 +55,11 @@ call reloaded the model in 0.8 s.
 - **Metal on Apple Silicon.** The `macos-arm64` binaries in `Whisper.net.Runtime` include the Metal
   backend, so Apple Silicon gets GPU acceleration without a separate package.
 - **Metal on the first load.** On the `osx-arm64` runner, loading `tiny` took 16.6 s, most likely
-  because ggml compiles its Metal shaders on the first load of the Metal backend. Apple Silicon users
-  would see this delay once per process unless the server warms up or caches the compiled library.
+  because ggml compiles its Metal shaders on the first load of the Metal backend. A later run of the
+  `build` workflow ([run 37886432047](https://github.com/OrihuelaConde/local-whisper-mcp/actions/runs/37886432047))
+  started a second server process right after the first: the first load took 14.9 s and the second
+  0.14 s, so macOS keeps the compiled shaders across processes. Apple Silicon users wait once per
+  machine, not once per session, and the server doesn't warm up the model ahead of time.
 - **Desktop RIDs.** `Whisper.net.Runtime` ships CPU binaries for `win-x64`, `win-arm64`, `win-x86`,
   `linux-x64`, `linux-arm64`, `linux-arm`, `osx-x64` (as `macos-x64`), and `osx-arm64`.
 - **Publish size.** The publish output copies native binaries for every platform. The Vulkan
@@ -117,6 +120,27 @@ call reloaded the model in 0.8 s.
   GPU, the Vulkan runtime loaded and whisper.cpp fell back to the CPU without any setting. On
   `osx-arm64`, the model ran on the runner's paravirtual GPU through Metal, and the first load took
   19.1 s, in line with the Metal shader compilation noted above.
+- **VAD on a long, quiet recording.** An 85-minute lecture recorded with an iPhone from the
+  audience (AAC, mean level -29.7 dBFS, peaks at 0 dBFS) exposed a VAD limit that the voice notes
+  hid. Without VAD, `large-v3-turbo-q8_0` on Vulkan transcribed it in 90 s (about 1.1 s per audio
+  minute, 3.6 GiB peak RAM, 2.3 GiB of VRAM) into about 9,000 words, with a few repetition loops
+  (about 2% of the words). With VAD, Silero found speech in only 5 of the 85 minutes and the
+  transcript kept 1,000 words. Lowering the threshold barely helped (9% at 0.15), but evening out
+  the loudness first, as ffmpeg's `dynaudnorm` does, raised the detected speech to 39%: the server
+  now normalizes a copy of the audio for detection only (`LoudnessNormalizer`). That brought the
+  VAD transcript to 6,300 words, but it still misses 37% of the sentences that the run without VAD
+  has, in long stretches where Silero detects nothing even at a 0.08 threshold. Merging spans with
+  longer minimum silences added words but also more repetition loops. On the voice notes and the
+  synthetic samples, the normalization changes nothing: same spans, same timestamps.
+- **VAD decided by the recording.** The spread between the loud and the quiet 50 ms frames (90th
+  minus 10th percentile of their levels) tells the two kinds of recording apart: the WhatsApp notes
+  measure 41 and 46 dB and the clean synthetic samples about 100 dB, while the lecture and the
+  synthetic samples with background noise measure 18 to 19 dB. When a call doesn't set `vad`, the
+  server uses VAD from 30 dB up and transcribes everything below. With that rule the lecture comes
+  out whole (about 9,000 words, 115 s), and the voice notes keep VAD and their exact timestamps. The
+  cost falls on noisy recordings with long pauses: on the synthetic sample with 30 s of noise, the
+  text is right and nothing is invented, but two segments start at the 30-second window boundaries
+  (30 s and 60 s) instead of at 34.1 s and 72.1 s.
 - **Unlinked web sessions.** A claude.ai session in the browser that isn't linked to the PC has no
   `mcp__remote-devices__*` tools. Asked to use Local Whisper, it tried to transcribe in its cloud
   container with faster-whisper instead, which the proxy blocked. The skill must rule that out.

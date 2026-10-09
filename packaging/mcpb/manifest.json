@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "local-whisper-mcp",
   "display_name": "Local Whisper",
-  "version": "0.1.0",
+  "version": "0.5.0",
   "description": "Transcribes audio files on your computer with Whisper, for Claude. The audio never leaves the machine.",
   "author": {
     "name": "José Luis Orihuela Conde",
@@ -13,18 +13,30 @@
     "url": "https://github.com/OrihuelaConde/local-whisper-mcp"
   },
   "homepage": "https://github.com/OrihuelaConde/local-whisper-mcp",
-  "keywords": ["whisper", "transcription", "speech-to-text", "audio", "voice notes", "local", "offline"],
+  "keywords": [
+    "whisper",
+    "transcription",
+    "speech-to-text",
+    "audio",
+    "voice notes",
+    "local",
+    "offline"
+  ],
   "server": {
     "type": "binary",
     "entry_point": "server/local-whisper-mcp.exe",
     "mcp_config": {
       "command": "${__dirname}/server/local-whisper-mcp.exe",
-      "args": [],
+      "args": [
+        "--allowed-roots",
+        "${user_config.allowed_folders}"
+      ],
       "env": {
         "LOCAL_WHISPER_MODEL": "${user_config.model}",
         "LOCAL_WHISPER_LANGUAGE": "${user_config.language}",
-        "LOCAL_WHISPER_RUNTIME": "${user_config.runtime}",
-        "LOCAL_WHISPER_IDLE_MINUTES": "${user_config.idle_minutes}"
+        "LOCAL_WHISPER_USE_GPU": "${user_config.use_gpu}",
+        "LOCAL_WHISPER_IDLE_MINUTES": "${user_config.idle_minutes}",
+        "LOCAL_WHISPER_AUTO_DOWNLOAD": "${user_config.auto_download}"
       }
     }
   },
@@ -34,41 +46,63 @@
       "description": "Transcribes an audio file on this computer with Whisper."
     },
     {
+      "name": "delete_models",
+      "description": "Deletes downloaded models to free disk space."
+    },
+    {
       "name": "status",
       "description": "Reports the device, the models, model downloads, and the folders the server may read."
     }
   ],
   "user_config": {
+    "allowed_folders": {
+      "type": "directory",
+      "title": "Folders with audio",
+      "description": "Folders where Claude may transcribe audio. Leave it empty to allow your whole user folder. Audio that Claude copies from a chat always goes through the server's own inbox folder.",
+      "required": false,
+      "multiple": true
+    },
     "model": {
       "type": "string",
-      "title": "Model",
-      "description": "Whisper model, such as large-v3-turbo-q8_0 or base. The server downloads it to ~/.local-whisper-mcp/models on first use.",
+      "title": "Whisper model",
+      "description": "Keep \"large-v3-turbo-q8_0\", the best balance of speed and accuracy. Use \"large-v3-turbo-q5_0\" if the GPU is short of memory, or \"base\" on a computer without a GPU. You can also enter any model listed at https://huggingface.co/ggerganov/whisper.cpp/tree/main, by name or by file name. The server downloads it the first time it's used.",
       "required": false,
       "default": "large-v3-turbo-q8_0"
     },
     "language": {
       "type": "string",
-      "title": "Default language",
-      "description": "Language code, such as en or es, or auto to detect it.",
+      "title": "Language",
+      "description": "Leave it empty to detect the language, or enter a code such as \"es\" or \"en\".",
       "required": false,
-      "default": "auto"
+      "default": ""
     },
-    "runtime": {
-      "type": "string",
-      "title": "Runtime",
-      "description": "auto, cpu, or vulkan. A GPU runtime that can't load falls back to the CPU.",
+    "use_gpu": {
+      "type": "boolean",
+      "title": "Use the GPU",
+      "description": "Transcribe on the GPU when there's one that works, which is many times faster. Turn it off to use only the CPU.",
       "required": false,
-      "default": "auto"
+      "default": true
     },
     "idle_minutes": {
-      "type": "string",
-      "title": "Idle minutes",
-      "description": "Minutes without calls before the model is released from memory, including GPU memory.",
+      "type": "number",
+      "title": "Minutes before freeing memory",
+      "description": "Minutes without transcriptions before the model leaves memory, including GPU memory, so games and other apps can use it. Enter 0 to free it after every transcription.",
       "required": false,
-      "default": "10"
+      "default": 5,
+      "min": 0,
+      "max": 1440
+    },
+    "auto_download": {
+      "type": "boolean",
+      "title": "Download models automatically",
+      "description": "Download a missing model from Hugging Face the first time it's needed. Downloading models is the only time the server connects to the internet.",
+      "required": false,
+      "default": true
     }
   },
   "compatibility": {
-    "platforms": ["win32"]
+    "platforms": [
+      "win32"
+    ]
   }
 }

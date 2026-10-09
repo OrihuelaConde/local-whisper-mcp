@@ -16,7 +16,7 @@ public sealed class ServerSettingsTests
         Assert.Equal("large-v3-turbo-q8_0", settings.DefaultModel);
         Assert.Equal("auto", settings.DefaultLanguage);
         Assert.Equal("auto", settings.Runtime);
-        Assert.Equal(TimeSpan.FromMinutes(10), settings.IdleTimeout);
+        Assert.Equal(TimeSpan.FromMinutes(5), settings.IdleTimeout);
         Assert.Equal([Home], settings.AllowedRoots);
         Assert.Equal(Path.Combine(Home, ".local-whisper-mcp", "inbox"), settings.InboxDirectory);
         Assert.Equal([Home, settings.InboxDirectory], settings.ReadableRoots);
@@ -82,7 +82,7 @@ public sealed class ServerSettingsTests
         Assert.Equal("large-v3-turbo-q8_0", settings.DefaultModel);
         Assert.Equal("auto", settings.DefaultLanguage);
         Assert.Equal("auto", settings.Runtime);
-        Assert.Equal(TimeSpan.FromMinutes(10), settings.IdleTimeout);
+        Assert.Equal(TimeSpan.FromMinutes(5), settings.IdleTimeout);
         Assert.True(settings.AutoDownload);
         Assert.Equal([Home], settings.AllowedRoots);
     }
@@ -97,7 +97,59 @@ public sealed class ServerSettingsTests
 
         Assert.Empty(warnings);
         Assert.Equal("large-v3-turbo-q8_0", settings.DefaultModel);
-        Assert.Equal(TimeSpan.FromMinutes(10), settings.IdleTimeout);
+        Assert.Equal(TimeSpan.FromMinutes(5), settings.IdleTimeout);
+    }
+
+    [Theory]
+    [InlineData("false", "vulkan", "cpu")]
+    [InlineData("true", "vulkan", "vulkan")]
+    [InlineData("true", null, "auto")]
+    public void Turning_the_gpu_off_forces_the_cpu_runtime(string useGpu, string? runtime, string expected)
+    {
+        var variables = new Dictionary<string, string> { ["LOCAL_WHISPER_USE_GPU"] = useGpu };
+        if (runtime is not null)
+        {
+            variables["LOCAL_WHISPER_RUNTIME"] = runtime;
+        }
+
+        Assert.Equal(expected, Read(variables, []).Runtime);
+    }
+
+    [Fact]
+    public void Placeholders_that_claude_desktop_leaves_for_unsaved_settings_count_as_unset()
+    {
+        var warnings = new List<string>();
+
+        var settings = ServerSettings.FromVariables(
+            name => $"${{user_config.{name}}}",
+            Home,
+            warnings,
+            ["${user_config.allowed_folders}"]);
+
+        Assert.Empty(warnings);
+        Assert.Equal("large-v3-turbo-q8_0", settings.DefaultModel);
+        Assert.Equal("auto", settings.Runtime);
+        Assert.Equal([Home], settings.AllowedRoots);
+    }
+
+    [Fact]
+    public void A_model_file_name_from_hugging_face_becomes_the_model_name()
+    {
+        // The extension's settings point users to the file list on Hugging Face.
+        var settings = Read(new() { ["LOCAL_WHISPER_MODEL"] = "ggml-small.en-q8_0.bin" }, []);
+
+        Assert.Equal("small.en-q8_0", settings.DefaultModel);
+    }
+
+    [Fact]
+    public void Folders_from_the_command_line_replace_the_allowed_roots_variable()
+    {
+        var picked = Path.Combine(Path.GetTempPath(), "picked");
+        var variables = new Dictionary<string, string> { ["LOCAL_WHISPER_ALLOWED_ROOTS"] = Path.Combine(Path.GetTempPath(), "variable") };
+
+        var settings = ServerSettings.FromVariables(name => variables.GetValueOrDefault(name), Home, [], [picked, " "]);
+
+        Assert.Equal([picked], settings.AllowedRoots);
     }
 
     private static ServerSettings Read(Dictionary<string, string> variables, List<string> warnings) =>

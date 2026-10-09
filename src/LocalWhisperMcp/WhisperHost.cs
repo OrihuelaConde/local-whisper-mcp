@@ -78,6 +78,30 @@ internal sealed class WhisperHost : IDisposable
         }
     }
 
+    /// <summary>Deletes model files, releasing the loaded model first if it's one of them.</summary>
+    /// <param name="fileNames">The model file names.</param>
+    /// <returns>The outcome for each file.</returns>
+    /// <remarks>It holds the same lock as transcriptions, so no call can load a model while its file is deleted.</remarks>
+    public async Task<IReadOnlyList<ModelDeletion>> DeleteModelsAsync(IReadOnlyCollection<string> fileNames)
+    {
+        await gate.WaitAsync();
+        try
+        {
+            if (transcriber is not null && fileNames.Contains(Path.GetFileName(transcriber.ModelPath), StringComparer.OrdinalIgnoreCase))
+            {
+                transcriber.Dispose();
+                transcriber = null;
+                logger.LogInformation("Released the model to delete it.");
+            }
+
+            return Models.Delete(fileNames);
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
     /// <summary>Describes the device, the models, and the time left before the model is released.</summary>
     /// <returns>The current status.</returns>
     public HostStatus GetStatus()
@@ -101,11 +125,12 @@ internal sealed class WhisperHost : IDisposable
             secondsUntilRelease,
             Settings.DefaultModel,
             Settings.DefaultLanguage,
-            Models.GetInstalledModels(),
+            Models.GetInstalledModelSizes(),
             Models.GetDownloads(),
             Models.ModelsDirectory,
             Settings.InboxDirectory,
             Settings.AllowedRoots,
+            Settings.LogsDirectory,
             Ffmpeg.IsAvailable());
     }
 
@@ -154,11 +179,12 @@ internal sealed class WhisperHost : IDisposable
 /// <param name="SecondsUntilRelease">The seconds left before the idle model is released, or <see langword="null"/> if no model is loaded.</param>
 /// <param name="DefaultModel">The model that calls use when they don't name one.</param>
 /// <param name="DefaultLanguage">The language that calls use when they don't name one.</param>
-/// <param name="InstalledModels">The models in the models directory.</param>
+/// <param name="InstalledModels">The Whisper models in the models directory, with their sizes.</param>
 /// <param name="Downloads">The model downloads in progress.</param>
 /// <param name="ModelsDirectory">The directory that holds the models.</param>
 /// <param name="Inbox">The directory to copy audio into when it isn't on this computer yet; the server deletes each file after transcribing it.</param>
 /// <param name="AllowedRoots">The other directories that transcribe may read audio from; the server never deletes files there.</param>
+/// <param name="Logs">The directory with the server's log files, one per day, kept for a week.</param>
 /// <param name="Ffmpeg"><see langword="true"/> if ffmpeg is on the <c>PATH</c>, which adds formats such as M4A and FLAC.</param>
 internal sealed record HostStatus(
     string Version,
@@ -168,9 +194,10 @@ internal sealed record HostStatus(
     double? SecondsUntilRelease,
     string DefaultModel,
     string DefaultLanguage,
-    IReadOnlyList<string> InstalledModels,
+    IReadOnlyList<InstalledModel> InstalledModels,
     IReadOnlyList<DownloadStatus> Downloads,
     string ModelsDirectory,
     string Inbox,
     IReadOnlyList<string> AllowedRoots,
+    string Logs,
     bool Ffmpeg);

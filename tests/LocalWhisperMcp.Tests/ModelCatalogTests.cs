@@ -42,5 +42,5 @@ public sealed class ModelCatalogTests
     [InlineData("", null)]
     [InlineData(null, null)]
     public void Model_names_accept_the_file_name_form(string? input, string? expected) =>
-        Assert.Equal(expected, TranscriptionTools.NormalizeModelName(input));
+        Assert.Equal(expected, ModelCatalog.Normalize(input));
 }

@@ -22,7 +22,7 @@ internal sealed class TranscriptionTools
     /// <param name="model">The model name, or <see langword="null"/> for the default model.</param>
     /// <param name="language">A language code, <c>auto</c>, or <see langword="null"/> for the default language.</param>
     /// <param name="format">One of <c>txt</c>, <c>srt</c>, or <c>json</c>.</param>
-    /// <param name="vad">Whether to transcribe only the spans where voice activity detection finds speech.</param>
+    /// <param name="vad">Whether to transcribe only the spans where voice activity detection finds speech, or <see langword="null"/> to decide from the background noise.</param>
     /// <param name="cancellationToken">The token to cancel the transcription.</param>
     /// <returns>The transcript in the requested format.</returns>
     [McpServerTool(Name = "transcribe", Title = "Transcribe audio", ReadOnly = true, Idempotent = true, OpenWorld = false)]
@@ -40,7 +40,7 @@ internal sealed class TranscriptionTools
         [Description("Whisper model, such as large-v3-turbo-q8_0 or base. Omit it to use the server default, which suits almost every case.")] string? model = null,
         [Description("Language of the audio as a code such as en or es, or auto to detect it. Omit it to use the server default.")] string? language = null,
         [Description("Output: txt for plain text, srt for subtitles, or json for segments with start and end times in seconds.")] string format = "txt",
-        [Description("Skip silence and noise with voice activity detection. It avoids invented text in long pauses; turn it off only if speech goes missing.")] bool vad = true,
+        [Description("Voice activity detection, which skips silence and noise. Omit it: the server turns it on for clean recordings, where it keeps timestamps exact, and off when background noise could hide quiet speech from it. Pass false if speech goes missing, or true to force it.")] bool? vad = null,
         CancellationToken cancellationToken = default)
     {
         var settings = host.Settings;
@@ -58,7 +58,7 @@ internal sealed class TranscriptionTools
             throw new McpException($"'{language}' isn't a language code. Use a code such as en or es, or auto.");
         }
 
-        var modelName = NormalizeModelName(model) ?? settings.DefaultModel;
+        var modelName = ModelCatalog.Normalize(model) ?? settings.DefaultModel;
         if (!ModelCatalog.IsValidName(modelName))
         {
             throw new McpException($"Invalid model name '{modelName}'.");
@@ -76,7 +76,16 @@ internal sealed class TranscriptionTools
         }
 
         var modelPath = await EnsureModelAsync(host, modelName, progress, DownloadWait, cancellationToken);
-        var vadPath = vad ? await TryEnsureVadModelAsync(host, logger, cancellationToken) : null;
+
+        var useVad = vad ?? true;
+        if (vad is null)
+        {
+            var spread = AudioQuality.MeasureSpreadDb(samples);
+            useVad = spread >= AudioQuality.CleanSpreadDb;
+            logger.LogInformation("The level spread of {File} is {Spread:F1} dB, so VAD is {State}.", Path.GetFileName(audioPath), spread, useVad ? "on" : "off");
+        }
+
+        var vadPath = useVad ? await TryEnsureVadModelAsync(host, logger, cancellationToken) : null;
 
         var stopwatch = Stopwatch.StartNew();
         try
@@ -112,23 +121,54 @@ internal sealed class TranscriptionTools
         "the inbox folder for audio that isn't on this computer yet, and the allowed folders that transcribe may read audio from.")]
     public static HostStatus GetStatus(WhisperHost host) => host.GetStatus();
 
-    /// <summary>Accepts a model name with the file name's prefix and extension, as clients sometimes send it.</summary>
-    /// <param name="model">The model name or file name.</param>
-    /// <returns>The model name, or <see langword="null"/> if none was given.</returns>
-    internal static string? NormalizeModelName(string? model)
+    /// <summary>Deletes downloaded models to free disk space.</summary>
+    /// <param name="host">The model host, from dependency injection.</param>
+    /// <param name="models">The models to delete, or <see langword="null"/> to delete all of them.</param>
+    /// <returns>What was deleted and how much space it freed.</returns>
+    [McpServerTool(Name = "delete_models", Title = "Delete downloaded models", Destructive = true, Idempotent = true, OpenWorld = false)]
+    [Description(
+        "Deletes downloaded Whisper models to free disk space; status lists them with their sizes. " +
+        "Without model names, it deletes every model, including the voice activity detection model. " +
+        "A deleted model downloads again the next time a transcription needs it. Confirm with the user before calling it.")]
+    public static async Task<string> DeleteModelsAsync(
+        WhisperHost host,
+        [Description("Models to delete, such as base or large-v3-turbo-q5_0. Omit it to delete all of them.")] string[]? models = null)
     {
-        var name = model?.Trim();
-        if (string.IsNullOrEmpty(name))
+        IReadOnlyList<string> fileNames;
+        if (models is { Length: > 0 })
         {
-            return null;
+            var names = models.Select(ModelCatalog.Normalize).OfType<string>().ToList();
+            if (names.FirstOrDefault(name => !ModelCatalog.IsValidName(name)) is { } invalid)
+            {
+                throw new McpException($"Invalid model name '{invalid}'.");
+            }
+
+            fileNames = [.. names.Select(ModelCatalog.GetFileName)];
+        }
+        else
+        {
+            fileNames = [.. host.Models.GetModelFiles().Select(file => file.Name)];
         }
 
-        if (name.EndsWith(".bin", StringComparison.OrdinalIgnoreCase))
+        if (fileNames.Count == 0)
         {
-            name = name[..^".bin".Length];
+            return "There are no downloaded models to delete.";
         }
 
-        return name.StartsWith("ggml-", StringComparison.OrdinalIgnoreCase) ? name["ggml-".Length..] : name;
+        var results = await host.DeleteModelsAsync(fileNames);
+        var deleted = results.Where(result => result.Reason is null).ToList();
+        var lines = new List<string>();
+        if (deleted.Count > 0)
+        {
+            lines.Add($"Deleted {deleted.Count} {(deleted.Count == 1 ? "model" : "models")} and freed {deleted.Sum(result => result.Bytes) / 1e6:N0} MB:");
+            lines.AddRange(deleted.Select(result => $"- {DisplayName(result.FileName)} ({result.Bytes / 1e6:N0} MB)"));
+        }
+
+        lines.AddRange(results.Where(result => result.Reason is not null).Select(result => $"Kept {DisplayName(result.FileName)}: {result.Reason}."));
+        return string.Join('\n', lines);
+
+        static string DisplayName(string fileName) =>
+            fileName == ModelCatalog.VadModelFileName ? "the voice activity detection model" : ModelCatalog.GetModelName(fileName) ?? fileName;
     }
 
     /// <summary>Gets the path of a model, downloading it first if it's missing and downloads are allowed.</summary>

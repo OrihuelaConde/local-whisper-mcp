@@ -26,7 +26,7 @@ internal static class ModelDownloadCommand
             logger.LogWarning("{Warning}", warning);
         }
 
-        var models = names.Count == 0 ? [settings.DefaultModel] : names.Select(name => TranscriptionTools.NormalizeModelName(name) ?? name).ToArray();
+        var models = names.Count == 0 ? [settings.DefaultModel] : names.Select(name => ModelCatalog.Normalize(name) ?? name).ToArray();
         if (models.FirstOrDefault(name => !ModelCatalog.KnownModels.Contains(name)) is { } unknown)
         {
             Console.Error.WriteLine($"Unknown model '{unknown}'. Models: {string.Join(", ", ModelCatalog.KnownModels)}.");

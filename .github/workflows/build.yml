@@ -69,13 +69,24 @@ jobs:
           New-Item -ItemType Directory -Force audio | Out-Null
           Invoke-WebRequest https://raw.githubusercontent.com/ggml-org/whisper.cpp/master/samples/jfk.wav -OutFile audio/jfk.wav
           $server = Resolve-Path (Join-Path out ($IsWindows ? 'local-whisper-mcp.exe' : 'local-whisper-mcp'))
+          $python = $IsWindows ? 'python' : 'python3'
           @(
             @{ name = 'status' }
             @{ name = 'transcribe'; arguments = @{ path = (Resolve-Path audio/jfk.wav).Path; language = 'en' } }
             @{ name = 'status' }
           ) | ConvertTo-Json -Depth 5 | Set-Content calls.json
-          & ($IsWindows ? 'python' : 'python3') scripts/mcp_smoke.py $server calls.json "ask not what your country can do for you"
+          & $python scripts/mcp_smoke.py $server calls.json "ask not what your country can do for you"
           if ($LASTEXITCODE -ne 0) { exit 1 }
+
+          # A second process shows whether the first model load, slow on Apple Silicon while Metal
+          # compiles its shaders, is cached across processes. It ends by deleting the model.
+          @(
+            @{ name = 'transcribe'; arguments = @{ path = (Resolve-Path audio/jfk.wav).Path; language = 'en' } }
+            @{ name = 'delete_models'; arguments = @{ models = @('tiny') } }
+          ) | ConvertTo-Json -Depth 5 | Set-Content calls.json
+          & $python scripts/mcp_smoke.py $server calls.json "ask not what your country can do for you"
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          if (Test-Path (Join-Path $env:LOCAL_WHISPER_MODELS_DIR 'ggml-tiny.bin')) { Write-Error 'delete_models left the model in place.'; exit 1 }
 
       - name: Report the output size
         run: |

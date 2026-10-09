@@ -1,11 +1,11 @@
 """Drives an MCP stdio server through initialize, tools/list, and a list of tool calls.
 
-Usage: python mcp_smoke.py SERVER CALLS_JSON [EXPECTED_TEXT]
+Usage: python mcp_smoke.py SERVER CALLS_JSON [EXPECTED_TEXT] [-- SERVER_ARGS...]
 
 CALLS_JSON is a file with a list of {"name": ..., "arguments": {...}} objects. An item can
 also be {"sleep": SECONDS} to wait, or {"gpu": LABEL} to print the GPU memory in use. When
 EXPECTED_TEXT is given, the script fails unless the last transcribe call succeeds and its text contains
-EXPECTED_TEXT, ignoring case and punctuation.
+EXPECTED_TEXT, ignoring case and punctuation. Arguments after -- go to the server.
 """
 import json
 import re
@@ -14,13 +14,16 @@ import subprocess
 import sys
 import time
 
-server, calls_path = sys.argv[1], sys.argv[2]
-expected = sys.argv[3] if len(sys.argv) > 3 else None
+argv = sys.argv[1:]
+server_args = argv[argv.index("--") + 1 :] if "--" in argv else []
+argv = argv[: argv.index("--")] if "--" in argv else argv
+server, calls_path = argv[0], argv[1]
+expected = argv[2] if len(argv) > 2 else None
 with open(calls_path, encoding="utf-8") as f:
     calls = json.load(f)
 
 proc = subprocess.Popen(
-    [server],
+    [server, *server_args],
     stdin=subprocess.PIPE,
     stdout=subprocess.PIPE,
     stderr=subprocess.PIPE,

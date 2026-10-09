@@ -9,15 +9,15 @@ internal static partial class ModelCatalog
     public const string VadModelFileName = "ggml-silero-v6.2.0.bin";
 
     /// <summary>
-    /// Gets the models that whisper.cpp publishes on Hugging Face, from its
-    /// <c>models/download-ggml-model.sh</c> script.
+    /// Gets the models in whisper.cpp's Hugging Face repository,
+    /// https://huggingface.co/ggerganov/whisper.cpp, as of October 2026.
     /// </summary>
     public static IReadOnlyList<string> KnownModels { get; } =
     [
-        "tiny", "tiny.en", "tiny-q5_1", "tiny.en-q5_1", "tiny-q8_0",
-        "base", "base.en", "base-q5_1", "base.en-q5_1", "base-q8_0",
-        "small", "small.en", "small.en-tdrz", "small-q5_1", "small.en-q5_1", "small-q8_0",
-        "medium", "medium.en", "medium-q5_0", "medium.en-q5_0", "medium-q8_0",
+        "tiny", "tiny-q5_1", "tiny-q8_0", "tiny.en", "tiny.en-q5_1", "tiny.en-q8_0",
+        "base", "base-q5_1", "base-q8_0", "base.en", "base.en-q5_1", "base.en-q8_0",
+        "small", "small-q5_1", "small-q8_0", "small.en", "small.en-q5_1", "small.en-q8_0",
+        "medium", "medium-q5_0", "medium-q8_0", "medium.en", "medium.en-q5_0", "medium.en-q8_0",
         "large-v1", "large-v2", "large-v2-q5_0", "large-v2-q8_0",
         "large-v3", "large-v3-q5_0", "large-v3-turbo", "large-v3-turbo-q5_0", "large-v3-turbo-q8_0",
     ];
@@ -26,6 +26,25 @@ internal static partial class ModelCatalog
     /// <param name="name">The model name, such as <c>base</c>.</param>
     /// <returns><see langword="true"/> if the name contains only letters, digits, dots, dashes, and underscores.</returns>
     public static bool IsValidName(string name) => NamePattern().IsMatch(name) && name is not ("." or "..");
+
+    /// <summary>Accepts a model name in the file name's form too, as listed on Hugging Face.</summary>
+    /// <param name="model">The model name, such as <c>base</c>, or its file name, such as <c>ggml-base.bin</c>.</param>
+    /// <returns>The model name, or <see langword="null"/> if none was given.</returns>
+    public static string? Normalize(string? model)
+    {
+        var name = model?.Trim();
+        if (string.IsNullOrEmpty(name))
+        {
+            return null;
+        }
+
+        if (name.EndsWith(".bin", StringComparison.OrdinalIgnoreCase))
+        {
+            name = name[..^".bin".Length];
+        }
+
+        return name.StartsWith("ggml-", StringComparison.OrdinalIgnoreCase) ? name["ggml-".Length..] : name;
+    }
 
     /// <summary>Gets the file name of a Whisper model.</summary>
     /// <param name="name">The model name, such as <c>base</c>.</param>

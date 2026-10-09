@@ -86,7 +86,9 @@ internal sealed class Transcriber : IDisposable
     {
         using var vadFactory = WhisperVadFactory.FromPath(vadModelPath);
         using var vad = vadFactory.CreateBuilder().WithThreads(threads).Build();
-        return [.. vad.DetectSpeech(samples).Select(s => new SpeechSpan(s.Start, s.End))];
+
+        // Only the detection sees the normalized copy; Whisper transcribes the original samples.
+        return [.. vad.DetectSpeech(LoudnessNormalizer.Normalize(samples)).Select(s => new SpeechSpan(s.Start, s.End))];
     }
 }
 
