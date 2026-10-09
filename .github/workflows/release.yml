@@ -44,13 +44,17 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      - name: Check that the tag matches the project version
+      - name: Check that the tag matches the project version and the changelog
         run: |
           $version = '${{ github.ref_name }}'.TrimStart('v')
           $project = ([xml](Get-Content src/LocalWhisperMcp/LocalWhisperMcp.csproj)).Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
           $manifest = (Get-Content packaging/mcpb/manifest.json -Raw | ConvertFrom-Json).version
           if ($version -ne $project -or $version -ne $manifest) {
             Write-Error "The tag says $version, the project $project, and the manifest $manifest."
+            exit 1
+          }
+          if (-not (Select-String -Path CHANGELOG.md -SimpleMatch "## [$version]" -Quiet)) {
+            Write-Error "CHANGELOG.md has no section for $version."
             exit 1
           }
 
@@ -131,9 +135,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          version="${GITHUB_REF_NAME#v}"
+          # The version's section of CHANGELOG.md, without its heading, becomes the release notes.
+          awk -v heading="## [$version]" 'index($0, heading) == 1 { found = 1; next } found && (/^## \[/ || /^\[[^]]+\]: /) { exit } found' CHANGELOG.md > notes.md
           cd dist
           sha256sum * > SHA256SUMS.txt
-          gh release create "${{ github.ref_name }}" ./* \
+          gh release create "$GITHUB_REF_NAME" ./* \
             --draft \
-            --generate-notes \
-            --title "Local Whisper MCP ${GITHUB_REF_NAME#v}"
+            --notes-file ../notes.md \
+            --title "Local Whisper MCP $version"
