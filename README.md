@@ -78,6 +78,21 @@ and may try to transcribe the audio in the cloud instead of telling you how to c
 To add the skill to claude.ai, download `local-whisper-skill.zip` and upload it in
 **Settings > Capabilities**, under **Skills**.
 
+To add the skill to Claude Code, install the `local-whisper` plugin from the `orihuelaconde`
+marketplace. First, add the marketplace:
+
+```bash
+claude plugin marketplace add OrihuelaConde/claude-plugins
+```
+
+Then install the plugin:
+
+```bash
+claude plugin install local-whisper@orihuelaconde
+```
+
+The plugin carries only the skill; register the server as described in [Claude Code](#claude-code).
+
 ## Use
 
 Ask Claude in your own words. For example:

@@ -40,8 +40,10 @@ The first public release. Versions before 1.0.0 were internal test builds.
 - Claude Desktop extension (`.mcpb`) for Windows and macOS, with a folder picker for the folders
   with audio, checkboxes for the GPU and automatic downloads, a number field for the idle minutes,
   and an optional file picker for ffmpeg.
-- Local Whisper skill for claude.ai, which tells Claude how to use the server in each kind of chat
-  and how to connect it when it isn't reachable.
+- Local Whisper skill, as a zip for claude.ai and as a Claude Code plugin in the `orihuelaconde`
+  marketplace (`OrihuelaConde/claude-plugins`). It tells Claude how to use the server in each kind
+  of chat, and how to connect the server from Claude Code, claude.ai, or the Claude desktop app
+  when it isn't reachable.
 - Settings through environment variables: `LOCAL_WHISPER_MODEL`, `LOCAL_WHISPER_LANGUAGE`,
   `LOCAL_WHISPER_USE_GPU`, `LOCAL_WHISPER_RUNTIME`, `LOCAL_WHISPER_IDLE_MINUTES`,
   `LOCAL_WHISPER_ALLOWED_ROOTS`, `LOCAL_WHISPER_INBOX_DIR`, `LOCAL_WHISPER_MODELS_DIR`,
