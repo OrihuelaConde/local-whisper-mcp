@@ -6,8 +6,6 @@ name: build
 
 on:
   workflow_dispatch:
-  push:
-    branches: [claude/project-thread-f6p1fx]
 
 permissions:
   contents: read
