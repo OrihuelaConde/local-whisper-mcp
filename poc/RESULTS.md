@@ -55,8 +55,11 @@ call reloaded the model in 0.8 s.
 - **Metal on Apple Silicon.** The `macos-arm64` binaries in `Whisper.net.Runtime` include the Metal
   backend, so Apple Silicon gets GPU acceleration without a separate package.
 - **Metal on the first load.** On the `osx-arm64` runner, loading `tiny` took 16.6 s, most likely
-  because ggml compiles its Metal shaders on the first load of the Metal backend. Apple Silicon users
-  would see this delay once per process unless the server warms up or caches the compiled library.
+  because ggml compiles its Metal shaders on the first load of the Metal backend. A later run of the
+  `build` workflow ([run 37886432047](https://github.com/OrihuelaConde/local-whisper-mcp/actions/runs/37886432047))
+  started a second server process right after the first: the first load took 14.9 s and the second
+  0.14 s, so macOS keeps the compiled shaders across processes. Apple Silicon users wait once per
+  machine, not once per session, and the server doesn't warm up the model ahead of time.
 - **Desktop RIDs.** `Whisper.net.Runtime` ships CPU binaries for `win-x64`, `win-arm64`, `win-x86`,
   `linux-x64`, `linux-arm64`, `linux-arm`, `osx-x64` (as `macos-x64`), and `osx-arm64`.
 - **Publish size.** The publish output copies native binaries for every platform. The Vulkan
