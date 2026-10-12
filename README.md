@@ -34,11 +34,11 @@ Each link downloads the file from the latest release.
 
 | System | Claude Desktop | Claude Code |
 |--------|----------------|-------------|
-| Windows (x64) | [Extension (.mcpb)][win-x64-mcpb] | [Server (.zip)][win-x64-zip] |
-| macOS with Apple Silicon | [Extension (.mcpb)][osx-arm64-mcpb] | [Server (.tar.gz)][osx-arm64-tgz] |
-| macOS with an Intel processor | [Extension (.mcpb)][osx-x64-mcpb] | [Server (.tar.gz)][osx-x64-tgz] |
-| Linux (x64) | Not available | [Server (.tar.gz)][linux-x64-tgz] |
-| Linux (arm64) | Not available | [Server (.tar.gz)][linux-arm64-tgz] |
+| Windows (x64) | [Download (.mcpb)][win-x64-mcpb] | [Download (.zip)][win-x64-zip] |
+| macOS with Apple Silicon | [Download (.mcpb)][osx-arm64-mcpb] | [Download (.tar.gz)][osx-arm64-tgz] |
+| macOS with an Intel processor | [Download (.mcpb)][osx-x64-mcpb] | [Download (.tar.gz)][osx-x64-tgz] |
+| Linux (x64) | Not available | [Download (.tar.gz)][linux-x64-tgz] |
+| Linux (arm64) | Not available | [Download (.tar.gz)][linux-arm64-tgz] |
 
 To check which Mac you have, choose **Apple menu > About This Mac**. A **Chip** line that starts
 with Apple, such as Apple M2, means Apple Silicon. A **Processor** line that names Intel means an
@@ -71,7 +71,7 @@ To add Local Whisper to Claude Desktop, install its extension:
 
 To add Local Whisper to Claude Code, register the executable as an MCP server:
 
-1. Download the server for your system from the table in [Install](#install), and extract it to a
+1. Download the archive for your system from the table in [Install](#install), and extract it to a
    folder that you keep.
 2. Run the following command:
 
