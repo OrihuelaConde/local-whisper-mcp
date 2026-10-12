@@ -7,6 +7,16 @@ version's section as its release notes.
 
 ## [Unreleased]
 
+### Added
+
+- The Local Whisper logo and a short demo video at the start of the README, and the logo's icon in
+  the Claude Desktop extension, the Claude Code plugin's listing, and the MCP Registry entry.
+
+### Changed
+
+- The README's install section is a table with a direct download for each system and app, and for
+  the skill. When a release is published, a workflow points those links at its files.
+
 ## [1.0.0] - 2026-10-09
 
 The first public release. Versions before 1.0.0 were internal test builds.

@@ -13,6 +13,7 @@
     "url": "https://github.com/OrihuelaConde/local-whisper-mcp"
   },
   "homepage": "https://github.com/OrihuelaConde/local-whisper-mcp",
+  "icon": "icon.png",
   "keywords": [
     "whisper",
     "transcription",

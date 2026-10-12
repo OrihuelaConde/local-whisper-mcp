@@ -5,6 +5,13 @@
   "description": "Private audio and video transcription with Whisper on your own computer, on the GPU or CPU.",
   "version": "1.0.0",
   "websiteUrl": "https://github.com/OrihuelaConde/local-whisper-mcp",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/OrihuelaConde/local-whisper-mcp/main/assets/icon.png",
+      "mimeType": "image/png",
+      "sizes": ["512x512"]
+    }
+  ],
   "repository": {
     "url": "https://github.com/OrihuelaConde/local-whisper-mcp",
     "source": "github"

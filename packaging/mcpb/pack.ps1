@@ -42,6 +42,7 @@ $manifest.server.entry_point = "server/$executable"
 $manifest.server.mcp_config.command = "`${__dirname}/server/$executable"
 $manifest.compatibility.platforms = @($platform)
 $manifest | ConvertTo-Json -Depth 10 | Set-Content (Join-Path $staging 'manifest.json') -Encoding utf8NoBOM
+Copy-Item (Join-Path $root 'assets/icon.png') (Join-Path $staging $manifest.icon)
 
 $bundle = Join-Path $out "local-whisper-mcp-$($manifest.version)-$Rid.mcpb"
 Remove-Item $bundle, "$bundle.zip" -ErrorAction SilentlyContinue

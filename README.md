@@ -1,9 +1,16 @@
-# Local Whisper MCP
+<h1 align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo-on-dark.svg">
+    <img src="assets/logo-on-light.svg" alt="Local Whisper MCP" width="400">
+  </picture>
+</h1>
 
 Private, local audio transcription for Claude. Local Whisper is a Model Context Protocol (MCP)
 server that transcribes audio files with Whisper on your own computer, so voice notes, meetings,
 and lectures never leave it. It works in Claude Desktop, in Claude Code, and in claude.ai chats
 that run on your computer.
+
+https://github.com/user-attachments/assets/dc71b178-b60d-457e-8f33-732696671c02
 
 ## Features
 
@@ -24,16 +31,43 @@ that run on your computer.
 
 ## Install
 
-Download the files from the [latest release](https://github.com/OrihuelaConde/local-whisper-mcp/releases/latest).
-Each section below names the file it needs.
+Find your system in the following table, and download the file for the app where you use Claude.
+Each link downloads the file from the latest release.
+
+| System | Claude Desktop | Claude Code |
+|--------|----------------|-------------|
+| Windows (x64) | [Download (.mcpb)][win-x64-mcpb] | [Download (.zip)][win-x64-zip] |
+| macOS with Apple Silicon | [Download (.mcpb)][osx-arm64-mcpb] | [Download (.tar.gz)][osx-arm64-tgz] |
+| macOS with an Intel processor | [Download (.mcpb)][osx-x64-mcpb] | [Download (.tar.gz)][osx-x64-tgz] |
+| Linux (x64) | Not available | [Download (.tar.gz)][linux-x64-tgz] |
+| Linux (arm64) | Not available | [Download (.tar.gz)][linux-arm64-tgz] |
+| Any system: the skill (optional) | [Download (.zip)][skill-zip] | [Install the plugin](#the-skill) |
+
+The skill tells Claude when and how to use the server. For more information, see
+[The skill](#the-skill).
+
+To check which Mac you have, choose **Apple menu > About This Mac**. A **Chip** line that starts
+with Apple, such as Apple M2, means Apple Silicon. A **Processor** line that names Intel means an
+Intel processor.
+
+To verify a download, compare its SHA-256 hash with the one in `SHA256SUMS.txt`, on the
+[releases page](https://github.com/OrihuelaConde/local-whisper-mcp/releases/latest).
+
+[win-x64-mcpb]: https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.0.0/local-whisper-mcp-1.0.0-win-x64.mcpb
+[win-x64-zip]: https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.0.0/local-whisper-mcp-1.0.0-win-x64.zip
+[osx-arm64-mcpb]: https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.0.0/local-whisper-mcp-1.0.0-osx-arm64.mcpb
+[osx-arm64-tgz]: https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.0.0/local-whisper-mcp-1.0.0-osx-arm64.tar.gz
+[osx-x64-mcpb]: https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.0.0/local-whisper-mcp-1.0.0-osx-x64.mcpb
+[osx-x64-tgz]: https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.0.0/local-whisper-mcp-1.0.0-osx-x64.tar.gz
+[linux-x64-tgz]: https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.0.0/local-whisper-mcp-1.0.0-linux-x64.tar.gz
+[linux-arm64-tgz]: https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.0.0/local-whisper-mcp-1.0.0-linux-arm64.tar.gz
+[skill-zip]: https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.0.0/local-whisper-skill.zip
 
 ### Claude Desktop
 
 To add Local Whisper to Claude Desktop, install its extension:
 
-1. Download the extension for your system: `local-whisper-mcp-VERSION-win-x64.mcpb` for Windows,
-   `local-whisper-mcp-VERSION-osx-arm64.mcpb` for Apple Silicon Macs, or
-   `local-whisper-mcp-VERSION-osx-x64.mcpb` for Intel Macs.
+1. Download the extension for your system from the table in [Install](#install).
 2. Open the file. Claude Desktop shows the extension's details.
 3. Click **Install**.
 4. Optional: In the extension's settings, choose the folders with your audio, the model, and the
@@ -43,8 +77,8 @@ To add Local Whisper to Claude Desktop, install its extension:
 
 To add Local Whisper to Claude Code, register the executable as an MCP server:
 
-1. Download the archive for your system, such as `local-whisper-mcp-VERSION-linux-x64.tar.gz`, and
-   extract it to a folder that you keep.
+1. Download the archive for your system from the table in [Install](#install), and extract it to a
+   folder that you keep.
 2. Run the following command:
 
    ```bash
@@ -75,8 +109,8 @@ when to use the server, how to pass it a chat attachment, and what to tell you w
 isn't reachable. Without it, a claude.ai chat that doesn't run on your computer can't see the server
 and may try to transcribe the audio in the cloud instead of telling you how to connect it.
 
-To add the skill to claude.ai, download `local-whisper-skill.zip` and upload it in
-**Settings > Capabilities**, under **Skills**.
+To add the skill to claude.ai and Claude Desktop, download [`local-whisper-skill.zip`][skill-zip] and
+upload it in **Settings > Capabilities**, under **Skills**.
 
 To add the skill to Claude Code, install the `local-whisper` plugin from the `orihuelaconde`
 marketplace. First, add the marketplace:

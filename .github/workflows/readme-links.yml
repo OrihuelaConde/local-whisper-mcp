@@ -1,0 +1,47 @@
+# Points the README's download links at a release when it's published. The release workflow creates
+# drafts, whose files aren't public yet, so the links change only once the release is out.
+name: readme-links
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    # A prerelease isn't the latest release, so the links stay on the last stable one.
+    if: ${{ !github.event.release.prerelease }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Point the download links at the release
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::The tag $TAG doesn't look like v1.2.3."
+            exit 1
+          fi
+          version="${TAG#v}"
+          sed -i -E \
+            -e "s#/releases/download/v[^/]+/local-whisper-mcp-[0-9][^/]*-(win|linux|osx)-#/releases/download/$TAG/local-whisper-mcp-$version-\1-#" \
+            -e "s#/releases/download/v[^/]+/local-whisper-skill\.zip#/releases/download/$TAG/local-whisper-skill.zip#" \
+            README.md
+          if grep -E '/releases/download/v' README.md | grep -vF "/releases/download/$TAG/"; then
+            echo "::error::The README links above don't match the patterns this workflow updates."
+            exit 1
+          fi
+          if git diff --quiet README.md; then
+            echo "The README already points at $TAG."
+            exit 0
+          fi
+          git diff README.md
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m "Point the README's download links at $TAG" README.md
+          git push
