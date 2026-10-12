@@ -29,16 +29,39 @@ that run on your computer.
 
 ## Install
 
-Download the files from the [latest release](https://github.com/OrihuelaConde/local-whisper-mcp/releases/latest).
-Each section below names the file it needs.
+Find your system in the following table, and download the file for the app where you use Claude.
+Each link downloads the file from the latest release.
+
+| System | Claude Desktop | Claude Code |
+|--------|----------------|-------------|
+| Windows (x64) | [Extension (.mcpb)][win-x64-mcpb] | [Server (.zip)][win-x64-zip] |
+| macOS with Apple Silicon | [Extension (.mcpb)][osx-arm64-mcpb] | [Server (.tar.gz)][osx-arm64-tgz] |
+| macOS with an Intel processor | [Extension (.mcpb)][osx-x64-mcpb] | [Server (.tar.gz)][osx-x64-tgz] |
+| Linux (x64) | Not available | [Server (.tar.gz)][linux-x64-tgz] |
+| Linux (arm64) | Not available | [Server (.tar.gz)][linux-arm64-tgz] |
+
+To check which Mac you have, choose **Apple menu > About This Mac**. A **Chip** line that starts
+with Apple, such as Apple M2, means Apple Silicon. A **Processor** line that names Intel means an
+Intel processor.
+
+To verify a download, compare its SHA-256 hash with the one in `SHA256SUMS.txt`, on the
+[releases page](https://github.com/OrihuelaConde/local-whisper-mcp/releases/latest).
+
+[win-x64-mcpb]: https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.0.0/local-whisper-mcp-1.0.0-win-x64.mcpb
+[win-x64-zip]: https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.0.0/local-whisper-mcp-1.0.0-win-x64.zip
+[osx-arm64-mcpb]: https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.0.0/local-whisper-mcp-1.0.0-osx-arm64.mcpb
+[osx-arm64-tgz]: https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.0.0/local-whisper-mcp-1.0.0-osx-arm64.tar.gz
+[osx-x64-mcpb]: https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.0.0/local-whisper-mcp-1.0.0-osx-x64.mcpb
+[osx-x64-tgz]: https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.0.0/local-whisper-mcp-1.0.0-osx-x64.tar.gz
+[linux-x64-tgz]: https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.0.0/local-whisper-mcp-1.0.0-linux-x64.tar.gz
+[linux-arm64-tgz]: https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.0.0/local-whisper-mcp-1.0.0-linux-arm64.tar.gz
+[skill-zip]: https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.0.0/local-whisper-skill.zip
 
 ### Claude Desktop
 
 To add Local Whisper to Claude Desktop, install its extension:
 
-1. Download the extension for your system: `local-whisper-mcp-VERSION-win-x64.mcpb` for Windows,
-   `local-whisper-mcp-VERSION-osx-arm64.mcpb` for Apple Silicon Macs, or
-   `local-whisper-mcp-VERSION-osx-x64.mcpb` for Intel Macs.
+1. Download the extension for your system from the table in [Install](#install).
 2. Open the file. Claude Desktop shows the extension's details.
 3. Click **Install**.
 4. Optional: In the extension's settings, choose the folders with your audio, the model, and the
@@ -48,8 +71,8 @@ To add Local Whisper to Claude Desktop, install its extension:
 
 To add Local Whisper to Claude Code, register the executable as an MCP server:
 
-1. Download the archive for your system, such as `local-whisper-mcp-VERSION-linux-x64.tar.gz`, and
-   extract it to a folder that you keep.
+1. Download the server for your system from the table in [Install](#install), and extract it to a
+   folder that you keep.
 2. Run the following command:
 
    ```bash
@@ -80,7 +103,7 @@ when to use the server, how to pass it a chat attachment, and what to tell you w
 isn't reachable. Without it, a claude.ai chat that doesn't run on your computer can't see the server
 and may try to transcribe the audio in the cloud instead of telling you how to connect it.
 
-To add the skill to claude.ai, download `local-whisper-skill.zip` and upload it in
+To add the skill to claude.ai, download [`local-whisper-skill.zip`][skill-zip] and upload it in
 **Settings > Capabilities**, under **Skills**.
 
 To add the skill to Claude Code, install the `local-whisper` plugin from the `orihuelaconde`
