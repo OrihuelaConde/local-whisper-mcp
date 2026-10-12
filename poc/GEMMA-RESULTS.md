@@ -44,8 +44,9 @@ knows the dialect. Gemma 4 12B doesn't earn a place. The work an optional engine
 | GPU backend | Vulkan | WebGPU over Direct3D 12 for the language model; the audio encoder runs on the CPU |
 | Model file | 834 MiB | 2.4 GiB (E2B), 3.4 GiB (E4B), and 6.4 GiB (12B) |
 
-Both engines run in `poc/GemmaAsr`, one engine per process, on the samples that the server's own
-decoders produce. Whisper runs through the server's `Transcriber`, with the server's rule for voice
+Both engines run in `gemma-asr`, a test program in the `poc/GemmaAsr` folder of the
+[`poc/gemma-4-evaluation` branch](https://github.com/OrihuelaConde/local-whisper-mcp/tree/poc/gemma-4-evaluation/poc/GemmaAsr),
+one engine per process, on the samples that the server's own decoders produce. Whisper runs through the server's `Transcriber`, with the server's rule for voice
 activity detection (VAD). Gemma 4 gets the audio as consecutive clips of up to 30 seconds, cut at
 the quietest moment near the end of each clip, each one in a new conversation with the speech
 recognition prompt from the [Gemma 4 model card](https://huggingface.co/google/gemma-4-E2B-it) and
@@ -372,11 +373,13 @@ builds:
 
 ## Reproduce
 
-The proof of concept needs a checkout of LiteRtLmSharp next to this repository, with its native
-libraries restored, and the model files in `models/gemma`.
+The code of the proof of concept isn't on the `main` branch. It's on the
+[`poc/gemma-4-evaluation` branch](https://github.com/OrihuelaConde/local-whisper-mcp/tree/poc/gemma-4-evaluation),
+and it needs a checkout of LiteRtLmSharp next to this repository, with its native libraries
+restored, and the model files in `models/gemma`.
 
-To build the program and compare the engines on your own audio, run the following commands from
-the repository root:
+To build the program and compare the engines on your own audio, check out that branch and run the
+following commands from the repository root:
 
 ```powershell
 dotnet build poc/GemmaAsr -c Release
