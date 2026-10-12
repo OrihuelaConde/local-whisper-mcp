@@ -7,6 +7,6 @@
   "homepage": "https://github.com/OrihuelaConde/local-whisper-mcp",
   "repository": "https://github.com/OrihuelaConde/local-whisper-mcp",
   "license": "MIT",
-  "icon": "./assets/icon.png",
+  "icon": "./icon.png",
   "keywords": ["whisper", "transcription", "speech-to-text", "subtitles", "mcp", "local", "privacy"]
 }

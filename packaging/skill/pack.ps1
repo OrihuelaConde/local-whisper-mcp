@@ -9,5 +9,5 @@ New-Item -ItemType Directory -Force $out | Out-Null
 Remove-Item $bundle -ErrorAction SilentlyContinue
 
 # claude.ai expects the skill folder, with SKILL.md inside it, at the root of the archive.
-Compress-Archive -Path (Join-Path $root 'skills/local-whisper') -DestinationPath $bundle
+Compress-Archive -Path (Join-Path $root 'plugin/skills/local-whisper') -DestinationPath $bundle
 Get-Item $bundle | Select-Object FullName, Length
