@@ -14,6 +14,8 @@ version's section as its release notes.
 
 ### Changed
 
+- The Claude Code plugin lives in the `plugin` folder, so installing it brings the skill without
+  the server's source code.
 - The README's install section is a table with a direct download for each system and app, and for
   the skill. When a release is published, a workflow points those links at its files.
 

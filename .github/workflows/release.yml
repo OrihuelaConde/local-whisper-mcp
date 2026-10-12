@@ -49,7 +49,7 @@ jobs:
           $version = '${{ github.ref_name }}'.TrimStart('v')
           $project = ([xml](Get-Content src/LocalWhisperMcp/LocalWhisperMcp.csproj)).Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
           $manifest = (Get-Content packaging/mcpb/manifest.json -Raw | ConvertFrom-Json).version
-          $plugin = (Get-Content .claude-plugin/plugin.json -Raw | ConvertFrom-Json).version
+          $plugin = (Get-Content plugin/.claude-plugin/plugin.json -Raw | ConvertFrom-Json).version
           if ($version -ne $project -or $version -ne $manifest -or $version -ne $plugin) {
             Write-Error "The tag says $version, the project $project, the extension manifest $manifest, and the plugin $plugin."
             exit 1
@@ -130,7 +130,7 @@ jobs:
           merge-multiple: true
 
       - name: Pack the skill for claude.ai
-        run: cd skills && zip -qr ../dist/local-whisper-skill.zip local-whisper
+        run: cd plugin/skills && zip -qr ../../dist/local-whisper-skill.zip local-whisper
 
       - name: Create a draft release
         env:
