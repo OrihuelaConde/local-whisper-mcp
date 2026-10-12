@@ -22,8 +22,9 @@ Gemma 4 isn't more accurate than Whisper, and a larger Gemma 4 model doesn't cha
   is the one accuracy result where Gemma 4 wins, and it needs the caller to know the dialect.
 - **On a GPU, Whisper is faster. On a CPU, Gemma 4 E2B is.** On the GPU, Whisper is about twice
   as fast as E2B on recordings of 10 seconds or more, and E2B matches it on 5-second ones. On the
-  CPU, E2B transcribes a voice note 2.8 times faster than Whisper and keeps a third of the cores
-  busy.
+  CPU, E2B transcribes a 24-second voice note 2.8 times faster than Whisper and a 5-second one 5.7
+  times faster, with a third of the cores. Whisper `base` is faster still and makes three times
+  the errors of E2B. Whisper `small`, the closest rival of E2B on a CPU, wasn't measured.
 - **Gemma 4 gives no timestamps,** so it can't produce the `srt` and `json` formats, and on noisy
   audio it needs two guards against repetition loops.
 
@@ -168,6 +169,26 @@ seconds per audio minute:
 Whisper's cost per recording has a floor, because it encodes a 30-second window however short the
 audio is, so E2B and E4B match it on 5-second recordings. A second run of the same setup differs by
 10% to 30% in time and gives the same transcripts, word for word.
+
+### Short recordings on the CPU
+
+Every fifth recording of the Argentinian Spanish set, 60 recordings of 5 seconds each, with the
+model loaded once and the CPU only. The last column is the rate on the whole set, from the GPU
+runs.
+
+| Engine | Seconds per recording | Seconds per audio minute | Cores busy | Peak RAM | WER on the 60 | WER on the set |
+|--------|-----------------------|--------------------------|------------|----------|---------------|----------------|
+| Whisper `large-v3-turbo-q8_0` | 6.1 | 74.5 | 7.9 | 1.3 GiB | 2.6% | 3.3% |
+| Whisper `base` | 0.5 | 6.2 | 7.9 | 0.4 GiB | 16.9% | 16.0% |
+| Gemma 4 E2B | 1.1 | 13.1 | 2.8 | 1.5 GiB | 5.6% | 5.8% |
+| Gemma 4 E4B | 2.6 | 31.3 | 3.2 | 3.0 GiB | 4.6% | 4.8% |
+
+Whisper encodes a 30-second window for any recording, which costs the default model 6 s on the
+CPU. Gemma 4's cost follows the length of the audio, so on short voice notes E2B is 5.7 times
+faster than the default model, with about twice its errors and a third of the cores. Against
+`base`, the Whisper model that is faster than E2B, E2B takes twice the time and makes a third of
+the errors; on FLEURS Spanish, `base` scores 11.2% against 6.5% for E2B. The Whisper models between
+`base` and the default one, `small` and `medium`, weren't measured.
 
 ### A long recording
 

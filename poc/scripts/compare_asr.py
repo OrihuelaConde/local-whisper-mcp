@@ -44,6 +44,8 @@ GEMMA_MODELS = Path(__file__).resolve().parents[2] / "models" / "gemma"
 SETUPS = {
     "whisper-gpu": ["--engine", "whisper", "--model", str(WHISPER_MODELS / "ggml-large-v3-turbo-q8_0.bin"), "--backend", "gpu"],
     "whisper-cpu": ["--engine", "whisper", "--model", str(WHISPER_MODELS / "ggml-large-v3-turbo-q8_0.bin"), "--backend", "cpu"],
+    "whisper-base-gpu": ["--engine", "whisper", "--model", str(WHISPER_MODELS / "ggml-base.bin"), "--backend", "gpu"],
+    "whisper-base-cpu": ["--engine", "whisper", "--model", str(WHISPER_MODELS / "ggml-base.bin"), "--backend", "cpu"],
     "gemma-e2b-gpu": ["--engine", "gemma", "--model", str(GEMMA_MODELS / "gemma-4-E2B-it.litertlm"), "--backend", "gpu"],
     "gemma-e2b-cpu": ["--engine", "gemma", "--model", str(GEMMA_MODELS / "gemma-4-E2B-it.litertlm"), "--backend", "cpu"],
     "gemma-e4b-gpu": ["--engine", "gemma", "--model", str(GEMMA_MODELS / "gemma-4-E4B-it.litertlm"), "--backend", "gpu"],
