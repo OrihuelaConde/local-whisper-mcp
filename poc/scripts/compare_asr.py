@@ -1,9 +1,10 @@
 """Runs gemma-asr on audio files with several engine setups and compares the transcripts.
 
 Usage:
-  python compare_asr.py run --exe GEMMA_ASR_EXE --out DIR --audio FILE... --setup NAME...
-                            [--language LANG] [--limit-seconds N] [--tag TAG]
+  python compare_asr.py run --exe GEMMA_ASR_EXE --out DIR (--audio FILE... | --audio-dir FOLDER)
+                            --setup NAME... [--language LANG] [--limit-seconds N] [--tag TAG]
   python compare_asr.py report --out DIR [--baseline NAME]
+  python compare_asr.py score --out DIR --refs REFS_TSV [--baseline NAME]
 
 `run` executes each setup on each file, one process per run, and appends one JSON line per run
 to DIR/results.jsonl. Transcripts go to DIR/transcripts/. DIR must be a folder that git ignores,
@@ -15,6 +16,14 @@ other processes that allocate memory during the run distort it.
 DIR/refs/<file name>.txt when that reference exists, and with the baseline setup's transcript
 otherwise, in which case it measures disagreement with the baseline, not errors. "In loops" is
 the share of the words that sit inside repetition loops, which both engines produce on noise.
+
+With --audio-dir, `run` treats the folder as a test set: each setup loads its model once and
+writes one transcript per recording to DIR/transcripts/<setup>/. `score` then compares those
+transcripts with the reference text of each recording, which REFS_TSV lists as "file name, tab,
+text" lines (fetch_testsets.py writes that file). It prints the word error rate over all the
+recordings, an interval from resampling the recordings, the rate on the recordings without
+numbers, and the difference from the baseline setup with its own interval: a difference whose
+interval doesn't include zero isn't chance.
 """
 import argparse
 import json
@@ -39,6 +48,9 @@ SETUPS = {
     "gemma-e2b-cpu": ["--engine", "gemma", "--model", str(GEMMA_MODELS / "gemma-4-E2B-it.litertlm"), "--backend", "cpu"],
     "gemma-e4b-gpu": ["--engine", "gemma", "--model", str(GEMMA_MODELS / "gemma-4-E4B-it.litertlm"), "--backend", "gpu"],
     "gemma-e4b-cpu": ["--engine", "gemma", "--model", str(GEMMA_MODELS / "gemma-4-E4B-it.litertlm"), "--backend", "cpu"],
+    # With 32-bit activations, Gemma 4 12B answers an audio clip with unused tokens on the GPU.
+    "gemma-12b-gpu": ["--engine", "gemma", "--model", str(GEMMA_MODELS / "gemma-4-12B-it.litertlm"), "--backend", "gpu", "--activation", "f16"],
+    "gemma-12b-cpu": ["--engine", "gemma", "--model", str(GEMMA_MODELS / "gemma-4-12B-it.litertlm"), "--backend", "cpu"],
 }
 
 
@@ -86,6 +98,21 @@ def command_run(args):
     out = Path(args.out)
     transcripts = out / "transcripts"
     transcripts.mkdir(parents=True, exist_ok=True)
+
+    # A folder is a test set: each setup loads its model once and transcribes every file.
+    if args.audio_dir:
+        for name in args.setup:
+            label = name + (f"+{args.tag}" if args.tag else "")
+            (transcripts / label).mkdir(exist_ok=True)
+            command = [args.exe, *SETUPS[name], "--audio-dir", args.audio_dir, "--out-dir", str(transcripts / label), "--language", args.language, *args.extra]
+            metrics = run_once(command)
+            metrics.update({"setup": label, "audio": Path(args.audio_dir).parent.name})
+            with open(out / "results.jsonl", "a", encoding="utf-8") as results:
+                results.write(json.dumps(metrics, ensure_ascii=False) + "\n")
+            summary = {key: metrics.get(key) for key in ("files", "audioSeconds", "loadSeconds", "transcribeSeconds", "secondsPerAudioMinute", "peakWorkingSetMiB", "vramDeltaMiB", "words", "clipsAtOutputLimit", "exitCode")}
+            print(f"{label} | {json.dumps(summary)}", flush=True)
+        return
+
     for audio in args.audio:
         for name in args.setup:
             label = name + (f"+{args.tag}" if args.tag else "")
@@ -170,12 +197,99 @@ def command_report(args):
                 f"| {row['peakWorkingSetMiB'] / 1024:.1f} GiB | {vram} | {len(words)} | {100 * loop_words(words) / max(1, len(words)):.1f}% | {wer} |")
 
 
+# Words that end like a voseo verb and aren't one, and "estás", which tuteo shares.
+NOT_VOSEO = {
+    "además", "atrás", "detrás", "demás", "jamás", "quizás", "más", "compás", "estás", "satanás",
+    "después", "través", "interés", "revés", "estrés", "antiestrés", "cafés", "bebés", "inglés", "francés", "portugués",
+    "japonés", "cortés", "holandés", "país", "parís", "anís",
+}
+
+
+def voseo_forms(words):
+    """Returns the words that only voseo uses: 'vos', 'sos', and verbs such as 'podés'."""
+    # Future forms such as "hablarás" and "podrás" end the same way and belong to tuteo too.
+    return [
+        word for word in words
+        if word in ("vos", "sos")
+        or (re.search(r"(ás|és|ís)$", word) and word not in NOT_VOSEO and not re.search(r"([aei]r|dr|br|rr)(ás|és)$", word))
+    ]
+
+
+def percentile(values, fraction):
+    return sorted(values)[min(len(values) - 1, int(fraction * len(values)))]
+
+
+def command_score(args):
+    out = Path(args.out)
+    references = {}
+    for line in Path(args.refs).read_text(encoding="utf-8").splitlines():
+        name, text = line.split("\t", 1)
+        references[name] = normalize(text)
+    speeds = {}
+    for line in (out / "results.jsonl").read_text(encoding="utf-8").splitlines():
+        row = json.loads(line)
+        speeds[row["setup"]] = row
+
+    # Per setup and recording: reference length, word errors, and the hypothesis.
+    scores = {}
+    for folder in sorted(path for path in (out / "transcripts").iterdir() if path.is_dir()):
+        # A run that is still going, or that failed, has transcripts for only some recordings.
+        if any(not (folder / f"{name}.txt").exists() for name in references):
+            print(f"Skipping {folder.name}: it doesn't have a transcript for every recording.")
+            continue
+        scores[folder.name] = {}
+        for name, reference in references.items():
+            hypothesis = normalize((folder / f"{name}.txt").read_text(encoding="utf-8"))
+            scores[folder.name][name] = (len(reference), word_errors(reference, hypothesis), hypothesis)
+
+    # Engines write numbers as digits or as words; a recording counts as "with numbers" if the
+    # reference or any transcript has a digit, so every setup is scored on the same recordings.
+    with_numbers = {
+        name for name, reference in references.items()
+        if any(any(character.isdigit() for character in word) for words in [reference, *(scores[setup][name][2] for setup in scores)] for word in words)
+    }
+    names = sorted(references)
+    random = __import__("random").Random(0)
+    samples = [[random.choice(names) for _ in names] for _ in range(args.resamples)]
+
+    def rate(setup, chosen):
+        return 100 * sum(scores[setup][name][1] for name in chosen) / max(1, sum(scores[setup][name][0] for name in chosen))
+
+    print(f"\n{len(names)} recordings, {sum(len(reference) for reference in references.values())} reference words, {len(with_numbers)} recordings with numbers\n")
+    print(f"| Setup | WER | 95% interval | WER without numbers | Exact recordings | Difference from {args.baseline} | Voseo forms kept | Seconds per audio minute | In loops |")
+    print("|-------|-----|--------------|---------------------|------------------|" + "-" * (18 + len(args.baseline)) + "|------------------|--------------------------|----------|")
+    for setup in scores:
+        resampled = [rate(setup, chosen) for chosen in samples]
+        exact = sum(1 for name in names if scores[setup][name][1] == 0)
+        if setup == args.baseline or args.baseline not in scores:
+            difference = "-"
+        else:
+            deltas = [rate(setup, chosen) - rate(args.baseline, chosen) for chosen in samples]
+            difference = f"{rate(setup, names) - rate(args.baseline, names):+.1f} ({percentile(deltas, 0.025):+.1f} to {percentile(deltas, 0.975):+.1f})"
+        total = kept = 0
+        for name in names:
+            hypothesis = list(scores[setup][name][2])
+            for form in voseo_forms(references[name]):
+                total += 1
+                if form in hypothesis:
+                    hypothesis.remove(form)
+                    kept += 1
+        voseo = f"{kept} of {total}" if total else "-"
+        words = [word for name in names for word in scores[setup][name][2]]
+        speed = f"{speeds[setup]['secondsPerAudioMinute']:.2f}" if setup in speeds and "secondsPerAudioMinute" in speeds[setup] else "-"
+        print(
+            f"| {setup} | {rate(setup, names):.1f}% | {percentile(resampled, 0.025):.1f} to {percentile(resampled, 0.975):.1f} "
+            f"| {rate(setup, [name for name in names if name not in with_numbers]):.1f}% | {exact} of {len(names)} | {difference} | {voseo} | {speed} "
+            f"| {100 * loop_words(words) / max(1, len(words)):.1f}% |")
+
+
 parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
 commands = parser.add_subparsers(dest="command", required=True)
 run_parser = commands.add_parser("run")
 run_parser.add_argument("--exe", required=True)
 run_parser.add_argument("--out", required=True)
-run_parser.add_argument("--audio", nargs="+", required=True)
+run_parser.add_argument("--audio", nargs="+", default=[])
+run_parser.add_argument("--audio-dir")
 run_parser.add_argument("--setup", nargs="+", required=True, choices=sorted(SETUPS))
 run_parser.add_argument("--language", default="auto")
 run_parser.add_argument("--limit-seconds", type=float, default=0)
@@ -184,6 +298,11 @@ run_parser.add_argument("extra", nargs="*", help="Extra gemma-asr arguments, aft
 report_parser = commands.add_parser("report")
 report_parser.add_argument("--out", required=True)
 report_parser.add_argument("--baseline", default="whisper-gpu")
+score_parser = commands.add_parser("score")
+score_parser.add_argument("--out", required=True)
+score_parser.add_argument("--refs", required=True)
+score_parser.add_argument("--baseline", default="whisper-gpu")
+score_parser.add_argument("--resamples", type=int, default=2000)
 arguments = parser.parse_args()
 sys.stdout.reconfigure(encoding="utf-8")
-{"run": command_run, "report": command_report}[arguments.command](arguments)
+{"run": command_run, "report": command_report, "score": command_score}[arguments.command](arguments)

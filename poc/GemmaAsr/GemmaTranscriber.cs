@@ -34,12 +34,14 @@ internal sealed class GemmaTranscriber : IDisposable
 
     /// <summary>Initializes a new instance of the <see cref="GemmaTranscriber"/> class and loads the model.</summary>
     /// <param name="modelPath">The path to the <c>.litertlm</c> model file.</param>
-    /// <param name="useGpu">Whether the language model runs on the GPU. The audio encoder always runs on the CPU.</param>
+    /// <param name="useGpu">Whether the language model runs on the GPU.</param>
+    /// <param name="audioOnGpu">Whether the audio encoder runs on the GPU instead of the CPU.</param>
     /// <param name="greedy">Whether to pick the most likely token at each step instead of sampling.</param>
     /// <param name="maxOutputTokens">The longest answer for one clip, in tokens.</param>
     /// <param name="contextTokens">The context window, which has to hold the prompt, one clip, and its answer.</param>
     /// <param name="noRepeatNgram">The length, in tokens, of the sequences an answer may not repeat, or 0 for no limit.</param>
-    public GemmaTranscriber(string modelPath, bool useGpu, bool greedy, int maxOutputTokens, int contextTokens, int noRepeatNgram)
+    /// <param name="halfPrecision">Whether the GPU computes with 16-bit instead of 32-bit activations.</param>
+    public GemmaTranscriber(string modelPath, bool useGpu, bool audioOnGpu, bool greedy, int maxOutputTokens, int contextTokens, int noRepeatNgram, bool halfPrecision)
     {
         // On noise, the model can repeat one word until it reaches the output limit.
         sendOptions = noRepeatNgram > 0
@@ -50,12 +52,17 @@ internal sealed class GemmaTranscriber : IDisposable
             ModelPath = modelPath,
             Backend = useGpu ? LiteRtBackend.Gpu : LiteRtBackend.Cpu,
 
-            // The audio sub-model of Gemma 4 declares the CPU as its only backend.
-            AudioBackend = LiteRtBackend.Cpu,
+            // The audio sub-model of Gemma 4 E2B and E4B declares the CPU as its only backend.
+            AudioBackend = audioOnGpu ? LiteRtBackend.Gpu : LiteRtBackend.Cpu,
 
             // Audio takes 25 tokens per second, so a 30-second clip is about 750 tokens.
             MaxNumTokens = contextTokens,
             EnableBenchmark = true,
+
+            // Gemma 4 12B answers an audio clip with unused tokens on the GPU unless the activations
+            // are 16-bit. LiteRtLmSharp asks for 32-bit by default, which E2B and E4B need to keep
+            // digits right.
+            ActivationDataType = halfPrecision ? LiteRtActivationDataType.Float16 : LiteRtActivationDataType.Float32,
         });
         conversationOptions = new LiteRtConversationOptions
         {
