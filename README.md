@@ -41,6 +41,10 @@ Each link downloads the file from the latest release.
 | macOS with an Intel processor | [Download (.mcpb)][osx-x64-mcpb] | [Download (.tar.gz)][osx-x64-tgz] |
 | Linux (x64) | Not available | [Download (.tar.gz)][linux-x64-tgz] |
 | Linux (arm64) | Not available | [Download (.tar.gz)][linux-arm64-tgz] |
+| Any system: the skill (optional) | [Download (.zip)][skill-zip] | [Install the plugin](#the-skill) |
+
+The skill tells Claude when and how to use the server. For more information, see
+[The skill](#the-skill).
 
 To check which Mac you have, choose **Apple menu > About This Mac**. A **Chip** line that starts
 with Apple, such as Apple M2, means Apple Silicon. A **Processor** line that names Intel means an
@@ -105,8 +109,8 @@ when to use the server, how to pass it a chat attachment, and what to tell you w
 isn't reachable. Without it, a claude.ai chat that doesn't run on your computer can't see the server
 and may try to transcribe the audio in the cloud instead of telling you how to connect it.
 
-To add the skill to claude.ai, download [`local-whisper-skill.zip`][skill-zip] and upload it in
-**Settings > Capabilities**, under **Skills**.
+To add the skill to claude.ai and Claude Desktop, download [`local-whisper-skill.zip`][skill-zip] and
+upload it in **Settings > Capabilities**, under **Skills**.
 
 To add the skill to Claude Code, install the `local-whisper` plugin from the `orihuelaconde`
 marketplace. First, add the marketplace:

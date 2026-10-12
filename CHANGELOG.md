@@ -14,8 +14,8 @@ version's section as its release notes.
 
 ### Changed
 
-- The README's install section is a table with a direct download for each system and app. When a
-  release is published, a workflow points those links at its files.
+- The README's install section is a table with a direct download for each system and app, and for
+  the skill. When a release is published, a workflow points those links at its files.
 
 ## [1.0.0] - 2026-10-09
 
