@@ -226,6 +226,16 @@ pwsh packaging/mcpb/pack.ps1 -Rid win-x64 -PublishDir out
 Replace `win-x64` with the runtime identifier of your system: `osx-arm64`, `osx-x64`, `linux-x64`,
 or `linux-arm64`. Native AOT builds only for the system it runs on.
 
+## Design notes
+
+The measurements behind the server's design are in the repository:
+
+- [Proof-of-concept results](poc/RESULTS.md): why the server is a C# Native AOT executable with
+  Whisper.net, and how the default model, the GPU backend, and the audio decoders were chosen.
+- [Gemma 4 as an alternative engine](poc/GEMMA-RESULTS.md): Gemma 4 E2B, E4B, and 12B compared
+  with Whisper on public test sets with reference transcripts. Whisper stays the only engine: it
+  makes fewer errors, and on computers without a GPU the Whisper `small` model matches Gemma 4.
+
 ## License
 
 Local Whisper is released under the [MIT License](LICENSE). It includes components under their own
