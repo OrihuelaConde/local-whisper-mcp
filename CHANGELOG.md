@@ -13,6 +13,9 @@ version's section as its release notes.
   Ubuntu and Debian.
 - The Local Whisper logo and a short demo video at the start of the README, and the logo's icon in
   the Claude Desktop extension, the Claude Code plugin's listing, and the MCP Registry entry.
+- A "Design notes" section in the README that links the measurements behind the design: the
+  proof-of-concept results and an evaluation of Gemma 4 as an alternative engine, which keeps
+  Whisper as the only one.
 
 ### Changed
 
