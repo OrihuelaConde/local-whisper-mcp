@@ -1,4 +1,9 @@
-# Local Whisper MCP
+<h1 align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo-on-dark.svg">
+    <img src="assets/logo-on-light.svg" alt="Local Whisper MCP" width="400">
+  </picture>
+</h1>
 
 Private, local audio transcription for Claude. Local Whisper is a Model Context Protocol (MCP)
 server that transcribes audio files with Whisper on your own computer, so voice notes, meetings,

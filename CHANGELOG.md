@@ -7,6 +7,11 @@ version's section as its release notes.
 
 ## [Unreleased]
 
+### Added
+
+- The Local Whisper logo at the top of the README, and its icon in the Claude Desktop extension,
+  the Claude Code plugin's listing, and the MCP Registry entry.
+
 ## [1.0.0] - 2026-10-09
 
 The first public release. Versions before 1.0.0 were internal test builds.
