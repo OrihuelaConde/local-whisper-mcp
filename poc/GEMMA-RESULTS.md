@@ -20,17 +20,19 @@ Gemma 4 isn't more accurate than Whisper, and a larger Gemma 4 model doesn't cha
   turns most Rioplatense voseo into tuteo. With a prompt that names the dialect, E4B keeps 123 of
   125 voseo forms and makes fewer errors than Whisper on those sentences: 3.4% against 4.9%. That
   is the one accuracy result where Gemma 4 wins, and it needs the caller to know the dialect.
-- **On a GPU, Whisper is faster. On a CPU, Gemma 4 E2B is.** On the GPU, Whisper is about twice
-  as fast as E2B on recordings of 10 seconds or more, and E2B matches it on 5-second ones. On the
-  CPU, E2B transcribes a 24-second voice note 2.8 times faster than Whisper and a 5-second one 5.7
-  times faster, with a third of the cores. Whisper `base` is faster still and makes three times
-  the errors of E2B. Whisper `small`, the closest rival of E2B on a CPU, wasn't measured.
+- **On a GPU, Whisper is faster.** It's about twice as fast as E2B on recordings of 10 seconds or
+  more, and E2B matches it on 5-second ones.
+- **On a CPU, Gemma 4 E2B beats the default Whisper model on speed and ties with Whisper `small`.**
+  E2B transcribes a 24-second voice note 2.8 times faster than `large-v3-turbo-q8_0` and a
+  5-second one 5.7 times faster, with twice the errors. Whisper `small` runs at about the speed of
+  E2B and is as accurate overall: better on English, worse on Argentinian Spanish.
 - **Gemma 4 gives no timestamps,** so it can't produce the `srt` and `json` formats, and on noisy
   audio it needs two guards against repetition loops.
 
-As an optional engine, Gemma 4 fits two cases: E2B for users without a GPU who want plain text,
-and E4B for callers who want to steer the dialect or the vocabulary. Gemma 4 12B doesn't earn a
-place. The work an optional engine takes is in
+The figures don't make the case for a second engine. Users without a GPU get about the same
+speed and accuracy from Whisper `small`, which the server already downloads on request and which
+gives timestamps. What only Gemma 4 offers is steering by prompt, which pays off when the caller
+knows the dialect. Gemma 4 12B doesn't earn a place. The work an optional engine takes is in
 [What an optional Gemma engine takes](#what-an-optional-gemma-engine-takes).
 
 ## What was compared
@@ -179,16 +181,34 @@ runs.
 | Engine | Seconds per recording | Seconds per audio minute | Cores busy | Peak RAM | WER on the 60 | WER on the set |
 |--------|-----------------------|--------------------------|------------|----------|---------------|----------------|
 | Whisper `large-v3-turbo-q8_0` | 6.1 | 74.5 | 7.9 | 1.3 GiB | 2.6% | 3.3% |
+| Whisper `small` | 1.6 | 19.3 | 7.9 | 0.8 GiB | 7.8% | 8.2% |
 | Whisper `base` | 0.5 | 6.2 | 7.9 | 0.4 GiB | 16.9% | 16.0% |
 | Gemma 4 E2B | 1.1 | 13.1 | 2.8 | 1.5 GiB | 5.6% | 5.8% |
 | Gemma 4 E4B | 2.6 | 31.3 | 3.2 | 3.0 GiB | 4.6% | 4.8% |
 
 Whisper encodes a 30-second window for any recording, which costs the default model 6 s on the
 CPU. Gemma 4's cost follows the length of the audio, so on short voice notes E2B is 5.7 times
-faster than the default model, with about twice its errors and a third of the cores. Against
-`base`, the Whisper model that is faster than E2B, E2B takes twice the time and makes a third of
-the errors; on FLEURS Spanish, `base` scores 11.2% against 6.5% for E2B. The Whisper models between
-`base` and the default one, `small` and `medium`, weren't measured.
+faster than the default model, with about twice its errors and a third of the cores. On the
+24-second note, `small` takes 3.7 s on the CPU against 4.7 s for E2B.
+
+### Whisper small against Gemma 4 E2B
+
+Whisper `small` is the Whisper model closest to E2B in speed on a CPU, so it decides whether E2B
+adds anything there. The last column is the rate of E2B minus the rate of `small`, with its 95%
+interval.
+
+| Test set | Whisper `small` | Gemma 4 E2B | Difference |
+|----------|-----------------|-------------|------------|
+| FLEURS Spanish | 5.7% | 6.5% | +0.7 (0.0 to +1.4) |
+| FLEURS English | 6.6% | 9.6% | +3.0 (+1.0 to +5.7) |
+| Argentinian Spanish | 8.2% | 5.8% | -2.4 (-3.6 to -1.1) |
+| Argentinian voseo | 11.5% | 9.4% | -2.1 (-3.8 to -0.6) |
+
+Neither wins: `small` is better on English, E2B on Argentinian Spanish, and they tie on the read
+Spanish of FLEURS. `small` keeps 41 of the 125 voseo forms, fewer than E2B. `small` is a 465 MiB
+download against 2.4 GiB, takes half the memory, and gives timestamps; E2B keeps a third of the
+cores busy and is faster on recordings of a few seconds. Whisper `base` is too inaccurate to
+compete: 11.2% on FLEURS Spanish and 16.0% on Argentinian Spanish.
 
 ### A long recording
 
