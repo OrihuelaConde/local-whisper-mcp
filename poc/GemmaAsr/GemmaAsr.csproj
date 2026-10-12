@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>gemma-asr</AssemblyName>
+    <RootNamespace>GemmaAsr</RootNamespace>
+    <!--
+      LiteRtLmSharp comes from a local checkout, because the comparison needs the LiteRT-LM v0.18.0
+      native library and the published 1.2.0 package wraps v0.16.0. The checkout must have its
+      native libraries restored (scripts/restore-natives.ps1). Override the location with
+      -p:LiteRtLmSharpRoot=PATH.
+    -->
+    <LiteRtLmSharpRoot Condition="'$(LiteRtLmSharpRoot)' == ''">$(MSBuildThisFileDirectory)..\..\..\LiteRtLmSharp</LiteRtLmSharpRoot>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="$(LiteRtLmSharpRoot)\LiteRtLmSharp\LiteRtLmSharp.csproj" />
+  </ItemGroup>
+
+  <!-- The decoders and the Whisper path are the server's own sources, so both engines get the
+       same samples and Whisper runs exactly as it does in the server. -->
+  <ItemGroup>
+    <Compile Include="..\..\src\LocalWhisperMcp\Audio\*.cs" LinkBase="Server\Audio" />
+    <Compile Include="..\..\src\LocalWhisperMcp\Transcription\Transcriber.cs" LinkBase="Server\Transcription" />
+    <Compile Include="..\..\src\LocalWhisperMcp\Transcription\NativeRuntime.cs" LinkBase="Server\Transcription" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Concentus" Version="2.2.2" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.12" />
+    <PackageReference Include="NLayer" Version="3.0.0" />
+    <PackageReference Include="Whisper.net" Version="1.9.1" />
+    <PackageReference Include="Whisper.net.Runtime" Version="1.9.1" />
+    <PackageReference Include="Whisper.net.Runtime.Vulkan" Version="1.9.1" />
+  </ItemGroup>
+
+</Project>
