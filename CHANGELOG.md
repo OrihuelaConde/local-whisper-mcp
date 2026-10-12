@@ -9,8 +9,8 @@ version's section as its release notes.
 
 ### Added
 
-- The Local Whisper logo at the top of the README, and its icon in the Claude Desktop extension,
-  the Claude Code plugin's listing, and the MCP Registry entry.
+- The Local Whisper logo and a short demo video at the start of the README, and the logo's icon in
+  the Claude Desktop extension, the Claude Code plugin's listing, and the MCP Registry entry.
 
 ### Changed
 

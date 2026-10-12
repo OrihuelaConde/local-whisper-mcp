@@ -10,6 +10,8 @@ server that transcribes audio files with Whisper on your own computer, so voice 
 and lectures never leave it. It works in Claude Desktop, in Claude Code, and in claude.ai chats
 that run on your computer.
 
+https://github.com/user-attachments/assets/dc71b178-b60d-457e-8f33-732696671c02
+
 ## Features
 
 - Transcribes WAV, Ogg Opus (WhatsApp and Telegram voice notes), and MP3 files with no extra
