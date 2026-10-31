@@ -39,6 +39,8 @@ internal sealed class WhisperHost : IDisposable
     /// <param name="samples">The 16 kHz mono samples.</param>
     /// <param name="language">A language code, or <c>auto</c>.</param>
     /// <param name="vadModelPath">The path to the VAD model, or <see langword="null"/> to skip VAD.</param>
+    /// <param name="prompt">Text that Whisper reads as if it came right before the audio, or <see langword="null"/> for none.</param>
+    /// <param name="carryPrompt">Whether every 30-second window reads the prompt, not only the first ones.</param>
     /// <param name="progress">Receives the percentage of the speech transcribed so far.</param>
     /// <param name="cancellationToken">The token to cancel the transcription.</param>
     /// <returns>The transcription.</returns>
@@ -48,6 +50,8 @@ internal sealed class WhisperHost : IDisposable
         float[] samples,
         string language,
         string? vadModelPath,
+        string? prompt,
+        bool carryPrompt,
         IProgress<int>? progress,
         CancellationToken cancellationToken)
     {
@@ -69,7 +73,7 @@ internal sealed class WhisperHost : IDisposable
                 throw new ArgumentException($"Whisper doesn't support the language '{language}'.", nameof(language));
             }
 
-            return await transcriber.TranscribeAsync(samples, language, vadModelPath, progress, cancellationToken);
+            return await transcriber.TranscribeAsync(samples, language, vadModelPath, prompt, carryPrompt, progress, cancellationToken);
         }
         finally
         {
