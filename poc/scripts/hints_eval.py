@@ -2,7 +2,7 @@
 
 Usage:
   python hints_eval.py prepare SET [--distractors 8] [--seed 7]
-  python hints_eval.py long SET LONG_SET [--per-file 25]
+  python hints_eval.py long SET LONG_SET [--per-file 25] [--seed N] [--limits 120 200]
   python hints_eval.py noise NOISE_SET [--count 20] [--seconds 10]
   python hints_eval.py run --exe HINTS_EVAL_EXE --set SET --setup NAME [--prompts TSV | --prompt TEXT | --voseo]
                            [--carry] [--language LANG] [--vad auto|on|off] [--model MODEL_FILE]
@@ -20,8 +20,11 @@ other recordings, the way a caller would pass a list where none of the names is 
 own+distractors.tsv (both, shuffled). Each recording keeps the same distractors in every file.
 
 `long` joins the recordings of SET into files of about five minutes each, in LONG_SET, with each
-file's names as hints. Whisper decodes 30-second windows, and by default only the first windows
-read the prompt; the long files show whether carrying the prompt to every window matters.
+file's names as hints in hints/own.tsv, and as many of them as fit in 120 and 200 characters in
+hints/own-120.tsv and hints/own-200.tsv. With --seed, it shuffles the recordings first, so another
+seed makes other files from the same set. Whisper decodes 30-second windows, and by default only
+the first windows read the prompt; the long files show whether carrying the prompt to every window
+matters, and whether a long prompt makes Whisper loop or skip speech.
 
 `noise` writes recordings without speech (white noise, brown noise, hum, and room tone), which
 show whether a prompt makes Whisper write text, or the prompt itself, where nobody speaks.
@@ -37,6 +40,7 @@ forms they keep, and how many recordings repeat a stretch of the dialect prompt.
 """
 import argparse
 import array
+import difflib
 import json
 import math
 import random
@@ -173,10 +177,51 @@ def command_prepare(args):
 
 
 def read_wave(path):
-    with wave.open(str(path), "rb") as file:
-        if file.getnchannels() != 1 or file.getsampwidth() != 2:
-            raise SystemExit(f"{path.name}: expected 16-bit mono WAV")
-        return file.getframerate(), file.readframes(file.getnframes())
+    """Reads a mono WAV file, 16-bit integer or 32-bit float as FLEURS has, as 16-bit samples."""
+    data = path.read_bytes()
+    if data[:4] != b"RIFF" or data[8:12] != b"WAVE":
+        raise SystemExit(f"{path.name}: not a WAV file")
+    position, fmt, samples = 12, None, None
+    while position + 8 <= len(data):
+        chunk, size = data[position:position + 4], int.from_bytes(data[position + 4:position + 8], "little")
+        body = data[position + 8:position + 8 + size]
+        if chunk == b"fmt ":
+            tag, channels, rate = int.from_bytes(body[0:2], "little"), int.from_bytes(body[2:4], "little"), int.from_bytes(body[4:8], "little")
+            bits = int.from_bytes(body[14:16], "little")
+            if tag == 0xFFFE:
+                tag = int.from_bytes(body[24:26], "little")
+            fmt = (tag, channels, rate, bits)
+        elif chunk == b"data":
+            samples = body
+        position += 8 + size + (size & 1)
+    if fmt is None or samples is None:
+        raise SystemExit(f"{path.name}: no fmt or data chunk")
+    tag, channels, rate, bits = fmt
+    if channels != 1:
+        raise SystemExit(f"{path.name}: expected mono, found {channels} channels")
+    if tag == 1 and bits == 16:
+        return rate, bytes(samples[:len(samples) // 2 * 2])
+    if tag == 3 and bits == 32:
+        floats = array.array("f")
+        floats.frombytes(samples[:len(samples) // 4 * 4])
+        if sys.byteorder != "little":
+            floats.byteswap()
+        pcm = array.array("h", (max(-32767, min(32767, round(value * 32767))) for value in floats))
+        if sys.byteorder != "little":
+            pcm.byteswap()
+        return rate, pcm.tobytes()
+    raise SystemExit(f"{path.name}: unsupported WAV format {tag} with {bits} bits")
+
+
+def fit_names(names, limit, seed):
+    """Picks names, spread over the list, until their prompt would pass the limit, in their original order."""
+    order = list(names)
+    random.Random(seed).shuffle(order)
+    chosen = []
+    for name in order:
+        if len(hint_prompt(chosen + [name])) <= limit:
+            chosen.append(name)
+    return [name for name in names if name in chosen]
 
 
 def command_long(args):
@@ -185,12 +230,17 @@ def command_long(args):
     (target / "audio").mkdir(parents=True, exist_ok=True)
     refs = read_refs(source)
     names = list(refs)
+    prefix = "long"
+    if args.seed is not None:
+        # Another order makes other files from the same recordings.
+        random.Random(args.seed).shuffle(names)
+        prefix = f"long-s{args.seed}"
     layout = {}
     long_refs = {}
     long_terms = {}
     for number, first in enumerate(range(0, len(names), args.per_file), 1):
         chunk = names[first:first + args.per_file]
-        file_name = f"long-{number:02d}.wav"
+        file_name = f"{prefix}-{number:02d}.wav"
         frames = bytearray()
         rate = None
         clips = []
@@ -222,6 +272,8 @@ def command_long(args):
     hints.mkdir(exist_ok=True)
     (hints / "terms.json").write_text(json.dumps(long_terms, ensure_ascii=False, indent=1), encoding="utf-8")
     write_prompts(hints / "own.tsv", {name: entry["own"] for name, entry in long_terms.items()})
+    for limit in args.limits:
+        write_prompts(hints / f"own-{limit}.tsv", {name: fit_names(entry["own"], limit, f"{name}:{limit}") for name, entry in long_terms.items()})
 
 
 def command_noise(args):
@@ -360,8 +412,8 @@ def command_score(args):
         return 100 * sum(scores[setup][name] for name in chosen) / max(1, sum(len(refs[name]) for name in chosen))
 
     print(f"\n{len(names)} recordings, {sum(len(words) for words in refs.values())} reference words, {len(with_numbers)} with numbers\n")
-    print(f"| Setup | WER | 95% interval | WER without numbers | Difference from {args.baseline} | Voseo forms kept | Dialect prompt repeated | Seconds per audio minute |")
-    print("|-------|-----|--------------|---------------------|" + "-" * (18 + len(args.baseline)) + "|------------------|-------------------------|--------------------------|")
+    print(f"| Setup | WER | 95% interval | WER without numbers | Difference from {args.baseline} | Large failures | Voseo forms kept | Dialect prompt repeated | Seconds per audio minute |")
+    print("|-------|-----|--------------|---------------------|" + "-" * (18 + len(args.baseline)) + "|----------------|------------------|-------------------------|--------------------------|")
     for setup in setups:
         resampled = [rate(setup, chosen) for chosen in samples]
         if setup == args.baseline or args.baseline not in scores:
@@ -380,9 +432,15 @@ def command_score(args):
         voseo = f"{kept} of {total}" if total else "-"
         repeated = sum(1 for name in names if echoes(name, hypotheses[setup][name]))
         speed = runs.get(setup, {}).get("secondsPerAudioMinute", "-")
+        without_numbers = [name for name in names if name not in with_numbers]
+        clean = f"{rate(setup, without_numbers):.2f}%" if without_numbers else "-"
+        # A large failure, such as a repetition loop or a skipped passage, at least doubles a
+        # recording's errors and adds 20 or more.
+        large = "-" if setup == args.baseline or args.baseline not in scores else sum(
+            1 for name in names if scores[setup][name] >= 2 * scores[args.baseline][name] and scores[setup][name] >= scores[args.baseline][name] + 20)
         print(
             f"| {setup} | {rate(setup, names):.2f}% | {percentile(resampled, 0.025):.2f} to {percentile(resampled, 0.975):.2f} "
-            f"| {rate(setup, [name for name in names if name not in with_numbers]):.2f}% | {difference} | {voseo} | {repeated} | {speed} |")
+            f"| {clean} | {difference} | {large} | {voseo} | {repeated} | {speed} |")
 
     # The recordings that a run makes worst show how a prompt fails, such as repeating itself.
     for setup in setups:
@@ -394,9 +452,17 @@ def command_score(args):
             print(f"\nWorst recordings for {setup} (errors with {args.baseline} -> with {setup}):")
             for name in worse:
                 print(f"- {name} ({scores[args.baseline][name]} -> {scores[setup][name]})")
-                print(f"  reference: {' '.join(refs[name])[:300]}")
-                print(f"  {args.baseline}: {' '.join(hypotheses[args.baseline][name])[:300]}")
-                print(f"  {setup}: {' '.join(hypotheses[setup][name])[:300]}")
+                before, after = hypotheses[args.baseline][name], hypotheses[setup][name]
+                if len(refs[name]) <= 60:
+                    print(f"  reference: {' '.join(refs[name])}")
+                    print(f"  {args.baseline}: {' '.join(before)}")
+                    print(f"  {setup}: {' '.join(after)}")
+                    continue
+                # In a long recording, show the largest stretch where the two runs differ.
+                blocks = [op for op in difflib.SequenceMatcher(None, before, after, autojunk=False).get_opcodes() if op[0] != "equal"]
+                tag, i1, i2, j1, j2 = max(blocks, key=lambda op: max(op[2] - op[1], op[4] - op[3]))
+                print(f"  {args.baseline}: ... {' '.join(before[max(0, i1 - 8):i2 + 8])} ...")
+                print(f"  {setup}: ... {' '.join(after[max(0, j1 - 8):j2 + 8])} ...")
 
     if not terms:
         return
@@ -427,7 +493,7 @@ def command_score(args):
                 continue
             shown += 1
             fixed_by = [setup for setup in setups if setup != args.baseline and count_sequence(hypotheses[setup][name], normalize(term)) >= e]
-            print(f"- {name}: \"{term}\" fixed by {', '.join(fixed_by) or 'none'}")
+            print(f"- {name}: \"{term}\" fixed by {', '.join(fixed_by) or 'no run'}")
 
     layout_path = set_dir / "layout.json"
     if layout_path.exists():
@@ -465,6 +531,8 @@ long_parser = commands.add_parser("long")
 long_parser.add_argument("set")
 long_parser.add_argument("long_set")
 long_parser.add_argument("--per-file", type=int, default=25)
+long_parser.add_argument("--seed", type=int, help="Shuffle the recordings first, to make other files from the same set.")
+long_parser.add_argument("--limits", type=int, nargs="*", default=[120, 200], help="Also write own-LIMIT.tsv with as many names as fit in LIMIT characters.")
 noise_parser = commands.add_parser("noise")
 noise_parser.add_argument("noise_set")
 noise_parser.add_argument("--count", type=int, default=20)
