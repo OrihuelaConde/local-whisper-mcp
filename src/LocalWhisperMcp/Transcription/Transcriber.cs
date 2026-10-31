@@ -38,6 +38,14 @@ internal sealed class Transcriber : IDisposable
     /// <param name="samples">The 16 kHz mono samples.</param>
     /// <param name="language">A language code, or <c>auto</c> to detect it.</param>
     /// <param name="vadModelPath">The path to the Silero VAD model, or <see langword="null"/> to transcribe everything.</param>
+    /// <param name="prompt">
+    /// Text that Whisper reads as if it came right before the audio, such as names it should spell
+    /// as given, or <see langword="null"/> for none.
+    /// </param>
+    /// <param name="carryPrompt">
+    /// Whether every 30-second window reads the prompt. Otherwise only the first windows read it,
+    /// until the transcript so far pushes it out of Whisper's context.
+    /// </param>
     /// <param name="progress">Receives the percentage of the speech transcribed so far.</param>
     /// <param name="cancellationToken">The token to cancel the transcription.</param>
     /// <returns>The transcription and the speech spans that were transcribed.</returns>
@@ -45,6 +53,8 @@ internal sealed class Transcriber : IDisposable
         float[] samples,
         string language,
         string? vadModelPath,
+        string? prompt,
+        bool carryPrompt,
         IProgress<int>? progress,
         CancellationToken cancellationToken)
     {
@@ -60,6 +70,11 @@ internal sealed class Transcriber : IDisposable
         var builder = factory.CreateBuilder()
             .WithLanguage(language)
             .WithThreads(threads);
+        if (prompt is not null)
+        {
+            builder = builder.WithPrompt(prompt).WithCarryInitialPrompt(carryPrompt);
+        }
+
         if (progress is not null)
         {
             builder = builder.WithProgressHandler(progress.Report);

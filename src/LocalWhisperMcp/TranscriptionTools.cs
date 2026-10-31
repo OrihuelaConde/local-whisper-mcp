@@ -23,6 +23,7 @@ internal sealed class TranscriptionTools
     /// <param name="language">A language code, <c>auto</c>, or <see langword="null"/> for the default language.</param>
     /// <param name="format">One of <c>txt</c>, <c>srt</c>, or <c>json</c>.</param>
     /// <param name="vad">Whether to transcribe only the spans where voice activity detection finds speech, or <see langword="null"/> to decide from the background noise.</param>
+    /// <param name="hints">Names and terms that the audio may contain, spelled as the transcript should write them, or <see langword="null"/> for none.</param>
     /// <param name="cancellationToken">The token to cancel the transcription.</param>
     /// <returns>The transcript in the requested format.</returns>
     [McpServerTool(Name = "transcribe", Title = "Transcribe audio", ReadOnly = true, Idempotent = true, OpenWorld = false)]
@@ -41,6 +42,7 @@ internal sealed class TranscriptionTools
         [Description("Language of the audio as a code such as en or es, or auto to detect it. Omit it to use the server default.")] string? language = null,
         [Description("Output: txt for plain text, srt for subtitles, or json for segments with start and end times in seconds.")] string format = "txt",
         [Description("Voice activity detection, which skips silence and noise. Omit it: the server turns it on for clean recordings, where it keeps timestamps exact, and off when background noise could hide quiet speech from it. Pass false if speech goes missing, or true to force it.")] bool? vad = null,
+        [Description("Names and terms the audio may contain, spelled the way the transcript should write them: people, places, companies, products, or jargon, most likely to be misspelled first. Pass the ones the conversation, the file name, or the user already gave; Whisper uses them as a spelling guide. Up to about 400 characters in all. Omit it when no names are known.")] string[]? hints = null,
         CancellationToken cancellationToken = default)
     {
         var settings = host.Settings;
@@ -56,6 +58,16 @@ internal sealed class TranscriptionTools
         if (!Languages.IsWellFormed(language))
         {
             throw new McpException($"'{language}' isn't a language code. Use a code such as en or es, or auto.");
+        }
+
+        string? prompt;
+        try
+        {
+            prompt = HintPrompt.Build(hints);
+        }
+        catch (ArgumentException exception)
+        {
+            throw new McpException(exception.Message, exception);
         }
 
         var modelName = ModelCatalog.Normalize(model) ?? settings.DefaultModel;
@@ -90,15 +102,16 @@ internal sealed class TranscriptionTools
         var stopwatch = Stopwatch.StartNew();
         try
         {
-            var result = await host.TranscribeAsync(modelPath, samples, language, vadPath, new PercentProgress(progress), cancellationToken);
+            var result = await host.TranscribeAsync(modelPath, samples, language, vadPath, prompt, carryPrompt: true, new PercentProgress(progress), cancellationToken);
             logger.LogInformation(
-                "Transcribed {Seconds:F1} s of {Extension} audio ({Speech:F1} s of speech) with {Model} on {Device} in {Elapsed:F2} s.",
+                "Transcribed {Seconds:F1} s of {Extension} audio ({Speech:F1} s of speech) with {Model} on {Device} in {Elapsed:F2} s, with {Hints} characters of hints.",
                 result.Duration.TotalSeconds,
                 Path.GetExtension(audioPath).ToLowerInvariant(),
                 result.Speech.Sum(s => (s.End - s.Start).TotalSeconds),
                 modelName,
                 NativeRuntime.Device,
-                stopwatch.Elapsed.TotalSeconds);
+                stopwatch.Elapsed.TotalSeconds,
+                prompt?.Length ?? 0);
             var transcript = TranscriptFormatter.Format(result, format);
 
             // Only a successful transcription consumes the file; after a failure the client can
