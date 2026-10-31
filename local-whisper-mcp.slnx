@@ -8,6 +8,7 @@
   <Folder Name="/poc/">
     <Project Path="poc/AotMcp/AotMcp.csproj" />
     <Project Path="poc/AotWhisper/AotWhisper.csproj" />
+    <Project Path="poc/HintsEval/HintsEval.csproj" />
     <Project Path="poc/PocCore/PocCore.csproj" />
   </Folder>
 </Solution>

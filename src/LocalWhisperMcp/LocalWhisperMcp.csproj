@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="LocalWhisperMcp.Tests" />
+    <InternalsVisibleTo Include="hints-eval" />
   </ItemGroup>
 
   <!-- The licenses travel with every published copy, including the Claude Desktop extension. -->
