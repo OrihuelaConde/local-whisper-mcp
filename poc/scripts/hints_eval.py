@@ -4,7 +4,7 @@ Usage:
   python hints_eval.py prepare SET [--distractors 8] [--seed 7]
   python hints_eval.py long SET LONG_SET [--per-file 25]
   python hints_eval.py noise NOISE_SET [--count 20] [--seconds 10]
-  python hints_eval.py run --exe HINTS_EVAL_EXE --set SET --setup NAME [--prompts TSV | --prompt TEXT]
+  python hints_eval.py run --exe HINTS_EVAL_EXE --set SET --setup NAME [--prompts TSV | --prompt TEXT | --voseo]
                            [--carry] [--language LANG] [--vad auto|on|off] [--model MODEL_FILE]
   python hints_eval.py score --set SET [--baseline none]
 
@@ -268,8 +268,9 @@ def command_run(args):
     command = [args.exe, "--model", args.model, "--audio-dir", str(set_dir / "audio"), "--out-dir", str(transcripts), "--language", args.language, "--vad", args.vad]
     if args.prompts:
         command += ["--prompts", args.prompts]
-    if args.prompt:
-        command += ["--prompt", args.prompt]
+    prompt = VOSEO_PROMPT if args.voseo else args.prompt
+    if prompt:
+        command += ["--prompt", prompt]
     if args.carry:
         command.append("--carry")
     run = subprocess.run(command, capture_output=True, text=True, encoding="utf-8", errors="replace")
@@ -277,7 +278,7 @@ def command_run(args):
         sys.stderr.write(run.stderr[-3000:])
         raise SystemExit(f"hints-eval exited with {run.returncode}")
     metrics = json.loads(run.stdout[run.stdout.index("{"):])
-    metrics.update({"setup": args.setup, "prompts": args.prompts, "prompt": args.prompt, "language": args.language, "model": Path(args.model).name})
+    metrics.update({"setup": args.setup, "prompts": args.prompts, "prompt": prompt, "language": args.language, "model": Path(args.model).name})
     warnings = [line for line in run.stderr.splitlines() if "prompt" in line.lower()]
     if warnings:
         metrics["promptWarnings"] = warnings[:5]
@@ -383,6 +384,20 @@ def command_score(args):
             f"| {setup} | {rate(setup, names):.2f}% | {percentile(resampled, 0.025):.2f} to {percentile(resampled, 0.975):.2f} "
             f"| {rate(setup, [name for name in names if name not in with_numbers]):.2f}% | {difference} | {voseo} | {repeated} | {speed} |")
 
+    # The recordings that a run makes worst show how a prompt fails, such as repeating itself.
+    for setup in setups:
+        if setup == args.baseline or args.baseline not in scores:
+            continue
+        worse = sorted(names, key=lambda name: scores[args.baseline][name] - scores[setup][name])[:3]
+        worse = [name for name in worse if scores[setup][name] > scores[args.baseline][name]]
+        if worse:
+            print(f"\nWorst recordings for {setup} (errors with {args.baseline} -> with {setup}):")
+            for name in worse:
+                print(f"- {name} ({scores[args.baseline][name]} -> {scores[setup][name]})")
+                print(f"  reference: {' '.join(refs[name])[:300]}")
+                print(f"  {args.baseline}: {' '.join(hypotheses[args.baseline][name])[:300]}")
+                print(f"  {setup}: {' '.join(hypotheses[setup][name])[:300]}")
+
     if not terms:
         return
 
@@ -460,6 +475,7 @@ run_parser.add_argument("--set", required=True)
 run_parser.add_argument("--setup", required=True)
 run_parser.add_argument("--prompts")
 run_parser.add_argument("--prompt")
+run_parser.add_argument("--voseo", action="store_true", help="Use the Rioplatense sample as the prompt.")
 run_parser.add_argument("--carry", action="store_true")
 run_parser.add_argument("--language", default="auto")
 run_parser.add_argument("--vad", default="auto", choices=["auto", "on", "off"])
