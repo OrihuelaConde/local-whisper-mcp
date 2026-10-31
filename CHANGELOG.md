@@ -9,6 +9,9 @@ version's section as its release notes.
 
 ### Added
 
+- `hints` parameter in the `transcribe` tool: names and terms that the audio is likely to contain,
+  up to 120 characters, which Whisper reads as a prompt so it spells them as given. The skill tells
+  Claude when to pass them. The measurements are in `poc/HINTS-RESULTS.md`.
 - Claude Desktop extension (`.mcpb`) for Linux x64 and arm64, for the beta of Claude Desktop on
   Ubuntu and Debian.
 - The Local Whisper logo and a short demo video at the start of the README, and the logo's icon in

@@ -5,13 +5,15 @@ namespace LocalWhisperMcp;
 /// <summary>Turns the names and terms that a caller expects in the audio into a Whisper prompt.</summary>
 /// <remarks>
 /// Whisper reads the prompt as if it were the transcript of the audio before the recording, so a
-/// list of names nudges it toward those spellings. Whisper keeps at most 223 tokens of prompt, and
-/// what doesn't fit leaves no room for the transcript so far, so the list has a length limit.
+/// list of names nudges it toward those spellings. The server passes the prompt to every 30-second
+/// window. On recordings of several minutes, longer prompts made Whisper fall into repetition loops
+/// more often; prompts of up to 120 characters kept most of the gain in names with fewer loops
+/// (see <c>poc/HINTS-RESULTS.md</c>).
 /// </remarks>
 internal static partial class HintPrompt
 {
     /// <summary>The longest prompt, in characters, that the hints may make.</summary>
-    public const int MaxLength = 400;
+    public const int MaxLength = 120;
 
     /// <summary>Builds the prompt from the hints.</summary>
     /// <param name="hints">The names and terms, in order of importance.</param>
@@ -43,7 +45,7 @@ internal static partial class HintPrompt
         if (prompt.Length > MaxLength)
         {
             throw new ArgumentException(
-                $"The hints add up to {prompt.Length} characters, and Whisper can use about {MaxLength}. Keep the names and terms most likely to be misspelled.",
+                $"The hints add up to {prompt.Length} characters, and the server takes up to {MaxLength}. Keep only the names and terms most likely to be misspelled.",
                 nameof(hints));
         }
 

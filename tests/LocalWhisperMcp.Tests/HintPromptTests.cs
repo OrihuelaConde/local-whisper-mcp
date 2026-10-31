@@ -29,10 +29,18 @@ public sealed class HintPromptTests
     }
 
     [Fact]
+    public void Hints_up_to_the_limit_are_accepted()
+    {
+        // Six names of 17 characters, with their separators and the final period, make 113.
+        var hints = Enumerable.Range(0, 6).Select(i => $"Nombre{i} Apellidos").ToArray();
+        Assert.Equal(113, HintPrompt.Build(hints)?.Length);
+    }
+
+    [Fact]
     public void Hints_longer_than_the_limit_are_rejected()
     {
-        var hints = Enumerable.Range(0, 60).Select(i => $"Nombre{i:00} Apellido").ToArray();
+        var hints = Enumerable.Range(0, 7).Select(i => $"Nombre{i} Apellidos").ToArray();
         var exception = Assert.Throws<ArgumentException>(() => HintPrompt.Build(hints));
-        Assert.Contains("characters", exception.Message);
+        Assert.Contains($"up to {HintPrompt.MaxLength}", exception.Message);
     }
 }
