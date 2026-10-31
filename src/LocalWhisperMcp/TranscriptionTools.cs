@@ -42,7 +42,7 @@ internal sealed class TranscriptionTools
         [Description("Language of the audio as a code such as en or es, or auto to detect it. Omit it to use the server default.")] string? language = null,
         [Description("Output: txt for plain text, srt for subtitles, or json for segments with start and end times in seconds.")] string format = "txt",
         [Description("Voice activity detection, which skips silence and noise. Omit it: the server turns it on for clean recordings, where it keeps timestamps exact, and off when background noise could hide quiet speech from it. Pass false if speech goes missing, or true to force it.")] bool? vad = null,
-        [Description("Names and terms the audio may contain, spelled the way the transcript should write them: people, places, companies, products, or jargon, most likely to be misspelled first. Pass the ones the conversation, the file name, or the user already gave; Whisper uses them as a spelling guide. Up to about 400 characters in all. Omit it when no names are known.")] string[]? hints = null,
+        [Description("Names and terms that are likely to be said in this audio, spelled the way the transcript should write them: people, places, companies, products, or jargon. Whisper uses them as a spelling guide. Pass only names that the user, the conversation, or the file name already gave, up to 120 characters in all (about eight names), the ones most likely to be misspelled first. Omit it when no names are known: a list of names that the audio doesn't contain can make short recordings slightly worse.")] string[]? hints = null,
         CancellationToken cancellationToken = default)
     {
         var settings = host.Settings;

@@ -52,6 +52,8 @@ The path is done when the user has the steps for their case.
 
 - `language`: omit it to detect the language; pass a code such as `es` or `en` when the user states the language.
 - `format`: `txt` by default, `srt` for subtitles, and `json` for segments with start and end times in seconds.
+- `hints`: names that are likely to be said in this audio, spelled the way the transcript should write them, such as people, places, companies, or products that the user, the conversation, or the file name mentioned. Up to about eight, the ones most likely to be misspelled first, within 120 characters. Omit it when you don't know any: names that the audio doesn't contain can make a short recording slightly worse. Don't pass instructions or sample sentences; Whisper reads the hints as text that came before the audio.
 - `vad` and `model`: keep the defaults unless the user asks otherwise.
+- A long transcript that repeats one phrase many times: call `transcribe` again without `hints`.
 - A reply that the model is still downloading comes only on first use: tell the user, wait about a minute, and call `transcribe` again. `status` shows the download's progress.
 - A reply that the file is outside the allowed folders means: copy it into the inbox and call again.

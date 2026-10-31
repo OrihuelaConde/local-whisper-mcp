@@ -134,6 +134,7 @@ Ask Claude in your own words. For example:
 - "Transcribe the voice note I just attached."
 - "Transcribe `C:\Users\me\Recordings\meeting.m4a` and summarize the decisions."
 - "Make Spanish subtitles for `~/Videos/class.mp4`."
+- "Transcribe the interview with Ana Orihuela about Whisper.net."
 
 Video files are much larger than audio files. When a video is already on your computer, give
 Claude its path instead of attaching it to the chat, so it doesn't have to travel through the chat
@@ -143,9 +144,13 @@ The server provides three tools:
 
 | Tool | What it does |
 |------|--------------|
-| `transcribe` | Transcribes an audio file. Its parameters are `path` (absolute), `model`, `language`, `format` (`txt`, `srt`, or `json`), and `vad`. |
+| `transcribe` | Transcribes an audio file. Its parameters are `path` (absolute), `model`, `language`, `format` (`txt`, `srt`, or `json`), `vad`, and `hints`. |
 | `status` | Reports the device in use, the installed models and their sizes, downloads in progress, the inbox, the allowed folders, and the log folder. |
 | `delete_models` | Deletes downloaded models to free disk space. Its description tells Claude to confirm with you first. |
+
+When you name the people, places, or products in a recording, Claude can pass up to about eight of
+them to `transcribe` as `hints`, and Whisper spells them the way you wrote them. Hints help most
+with uncommon names, which Whisper otherwise spells by ear.
 
 ## Configure
 
@@ -202,6 +207,8 @@ allow it with `xattr -dr com.apple.quarantine FOLDER`, where `FOLDER` is the ext
   compiles the GPU shaders once per computer.
 - **Parts of a recording are missing.** Ask Claude to transcribe it again with `vad` set to
   `false`.
+- **A long recording repeats a phrase over and over in the transcript.** If Claude passed
+  `hints`, ask it to transcribe the recording again without them.
 - **Something else fails.** Check today's file in `~/.local-whisper-mcp/logs`.
 
 ## Build from source
@@ -235,6 +242,8 @@ The measurements behind the server's design are in the repository:
 - [Gemma 4 as an alternative engine](poc/GEMMA-RESULTS.md): Gemma 4 E2B, E4B, and 12B compared
   with Whisper on public test sets with reference transcripts. Whisper stays the only engine: it
   makes fewer errors, and on computers without a GPU the Whisper `small` model matches Gemma 4.
+- [Hints](poc/HINTS-RESULTS.md): what passing the names in a recording as a Whisper prompt does to
+  the transcript, and why the list is limited to 120 characters.
 
 ## License
 
