@@ -23,6 +23,12 @@ public sealed class HintPromptTests
     }
 
     [Fact]
+    public void Null_items_from_a_client_are_skipped()
+    {
+        Assert.Equal("Oravec.", HintPrompt.Build([null!, "Oravec"]));
+    }
+
+    [Fact]
     public void A_final_period_is_not_doubled()
     {
         Assert.Equal("Acme S.A.", HintPrompt.Build(["Acme S.A."]));
