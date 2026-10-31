@@ -26,7 +26,9 @@ internal static partial class HintPrompt
             return null;
         }
 
+        // The tool's schema lets a client send null items, so they're skipped like blank ones.
         var terms = hints
+            .Where(hint => !string.IsNullOrWhiteSpace(hint))
             .Select(hint => Whitespace().Replace(hint, " ").Trim().TrimEnd(',', ';'))
             .Where(hint => hint.Length > 0)
             .Distinct(StringComparer.OrdinalIgnoreCase)
