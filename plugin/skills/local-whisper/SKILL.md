@@ -27,6 +27,8 @@ The attachment lives in this session's cloud container, and the server can only 
 
 The inbox is the only folder the server cleans, so it's the destination for every copy: a copy in Downloads or any other folder stays behind. The path is done when `transcribe` returns text and the copy existed only in the inbox.
 
+A recording that's already on the computer doesn't need to travel through the chat: when the user gives its full path, call `transcribe` with it. When they want to transcribe many recordings or a large video, suggest giving paths instead of attaching the files.
+
 ## Local session
 
 1. Call `status` and note `inbox` and `allowedRoots`.
@@ -54,9 +56,7 @@ Pick the steps by where this session runs:
 - **A chat without device tools** (no `device_commit_files`): claude.ai in a browser, the mobile app, a Claude desktop app chat, or Cowork. These look the same from here, so write the steps for the user to pick their case, instead of guessing it:
   1. If their computer doesn't have the Claude desktop app, install it from https://claude.ai/download and sign in with this same account.
   2. Download the Local Whisper extension for their system from the install table, open the file (if the system asks which app to open it with, choose Claude), and click **Install** in Claude Desktop. If it's already installed, check that it's turned on in **Settings > Extensions**.
-  3. Ask again in a new chat, in one of two ways:
-     - In claude.ai, in a browser or the mobile app, linked to the computer, to attach the file: click **+** in the message box, choose **Devices**, pick the computer, and attach the file. This also works for a recording that's only on their phone: the copy goes to the computer, and the server deletes it after transcribing. The computer must be on, with the Claude desktop app open.
-     - In the Claude desktop app, with the file's full path, such as `C:\Users\Name\Downloads\note.m4a` or `/Users/Name/Downloads/note.m4a`. To copy it, right-click the file and choose **Copy as path** on Windows, or hold Option, right-click it, and choose **Copy as Pathname** on a Mac.
+  3. Start a new chat, attach the recording, and ask again. The chat can be in the Claude desktop app, or in claude.ai in a browser or the mobile app linked to the computer: click **+** in the message box, choose **Devices**, and pick the computer. A linked chat also works for a recording that's only on their phone: the copy goes to the computer, and the server deletes it after transcribing. The computer must be on, with the Claude desktop app open.
 - **A chat with device tools but no Local Whisper tools**: the chat reaches the computer, but the server isn't installed there. Tell them to download the extension for their system from the install table, open it in the Claude desktop app on that computer, and click **Install**, or turn it on in **Settings > Extensions** if it's already there. Then start a new chat, link it to the computer again with **+** > **Devices**, attach the file, and ask.
 
 The path is done when the user has the steps for their case.
