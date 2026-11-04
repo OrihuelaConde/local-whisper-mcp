@@ -130,7 +130,9 @@ internal sealed class TranscriptionTools
             var fix = OperatingSystem.IsLinux()
                 ? "On Linux, install the OpenMP runtime, with sudo apt install libgomp1 on Debian and Ubuntu or your distribution's libgomp package, and then restart Claude."
                 : "Reinstall Local Whisper from the latest release, and then restart Claude.";
-            throw new McpException($"Whisper's native library couldn't load on this computer. {exception.Message} {fix}", exception);
+            var detail = exception.Message.TrimEnd();
+            detail = detail.EndsWith('.') ? detail : detail + ".";
+            throw new McpException($"Whisper's native library couldn't load on this computer. {detail} {fix}", exception);
         }
     }
 
