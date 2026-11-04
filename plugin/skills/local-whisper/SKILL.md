@@ -35,7 +35,7 @@ A recording that's already on the computer doesn't need to travel through the ch
 2. Find the audio on the computer:
    - Inside the inbox or an allowed root: use its absolute path as it is.
    - Elsewhere on the computer: copy it into the inbox, which the server cleans after transcribing.
-   - Only in the chat, as an attachment: the server can't read chat attachments in this session. Ask for the file's full path on the computer, and say how to copy it: on Windows, right-click the file and choose **Copy as path**; on a Mac, hold Option, right-click the file, and choose **Copy as Pathname**.
+   - Only in the chat, as an attachment, with no tool in this session that can copy it to the computer (as in Cowork or Claude Code): the server can't read it there. Ask for the file's full path on the computer, and say how to copy it: on Windows, right-click the file and choose **Copy as path**; on a Mac, hold Option, right-click the file, and choose **Copy as Pathname**.
 3. Call `transcribe` with that path.
 
 The path is done when `transcribe` returns text.
