@@ -3,7 +3,7 @@
   "name": "io.github.OrihuelaConde/local-whisper-mcp",
   "title": "Local Whisper",
   "description": "Private audio and video transcription with Whisper on your own computer, on the GPU or CPU.",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "websiteUrl": "https://github.com/OrihuelaConde/local-whisper-mcp",
   "icons": [
     {
@@ -19,20 +19,32 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.0.0/local-whisper-mcp-1.0.0-win-x64.mcpb",
-      "fileSha256": "353b248b70a5f900d33f6075142b3eded12d8db4df50d8871dcddfa04bb7e2a6",
+      "identifier": "https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.1.0/local-whisper-mcp-1.1.0-win-x64.mcpb",
+      "fileSha256": "f356292528c7439106d3be019043b08c45db2c24e59c57594c5d73a5a234beaf",
       "transport": { "type": "stdio" }
     },
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.0.0/local-whisper-mcp-1.0.0-osx-arm64.mcpb",
-      "fileSha256": "c27f1cd42d75bb5197db2ba5dbddcf79ebe3b44892502fc304cc9636a1d00d55",
+      "identifier": "https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.1.0/local-whisper-mcp-1.1.0-osx-arm64.mcpb",
+      "fileSha256": "de094d059a9f790516a3ab95b3bc72913244f5042b2abc94ab447bfbc4f077aa",
       "transport": { "type": "stdio" }
     },
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.0.0/local-whisper-mcp-1.0.0-osx-x64.mcpb",
-      "fileSha256": "c60f56f7ba6c7f8e777a41755110fbdbd0d9082ea990fa66108921a05ccc338f",
+      "identifier": "https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.1.0/local-whisper-mcp-1.1.0-osx-x64.mcpb",
+      "fileSha256": "06d133d7115119a257d22abc0b6f1f6ce63a8f026c375d380a6e75fa49f636b3",
+      "transport": { "type": "stdio" }
+    },
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.1.0/local-whisper-mcp-1.1.0-linux-x64.mcpb",
+      "fileSha256": "cba0ea77b8080d8e3fc9de4587255e567b509e236feb3a4d9ea0e94c6dfa5566",
+      "transport": { "type": "stdio" }
+    },
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.1.0/local-whisper-mcp-1.1.0-linux-arm64.mcpb",
+      "fileSha256": "bf3153729de6811bc894670472e19564af9e3ba26a84ddd249a6c8bda3e3153f",
       "transport": { "type": "stdio" }
     }
   ]
