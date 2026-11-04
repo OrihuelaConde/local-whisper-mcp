@@ -17,7 +17,7 @@ internal static partial class HintPrompt
 
     /// <summary>Builds the prompt from the hints.</summary>
     /// <param name="hints">The names and terms, in order of importance.</param>
-    /// <returns>The prompt, such as <c>Ana Orihuela, Whisper.net, MCPB.</c>, or <see langword="null"/> if there are no hints.</returns>
+    /// <returns>The prompt, such as <c>Mirtha Legrand, Whisper.net, MCPB.</c>, or <see langword="null"/> if there are no hints.</returns>
     /// <exception cref="ArgumentException">The prompt would be longer than <see cref="MaxLength"/>.</exception>
     public static string? Build(IEnumerable<string>? hints)
     {
