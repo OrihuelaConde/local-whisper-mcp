@@ -150,7 +150,8 @@ The server provides three tools:
 
 When you name the people, places, or products in a recording, Claude can pass up to about eight of
 them to `transcribe` as `hints`, and Whisper spells them the way you wrote them. Hints help most
-with uncommon names, which Whisper otherwise spells by ear.
+with uncommon names, which Whisper otherwise spells by ear. The server takes hints from version
+1.1.0.
 
 ## Configure
 
