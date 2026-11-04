@@ -5,7 +5,7 @@ public sealed class HintPromptTests
     [Fact]
     public void Hints_become_a_comma_separated_sentence()
     {
-        Assert.Equal("Ana Orihuela, Whisper.net, MCPB.", HintPrompt.Build(["Ana Orihuela", "Whisper.net", "MCPB"]));
+        Assert.Equal("Mirtha Legrand, Whisper.net, MCPB.", HintPrompt.Build(["Mirtha Legrand", "Whisper.net", "MCPB"]));
     }
 
     [Fact]

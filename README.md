@@ -134,7 +134,7 @@ Ask Claude in your own words. For example:
 - "Transcribe the voice note I just attached."
 - "Transcribe `C:\Users\me\Recordings\meeting.m4a` and summarize the decisions."
 - "Make Spanish subtitles for `~/Videos/class.mp4`."
-- "Transcribe the interview with Ana Orihuela about Whisper.net."
+- "Transcribe the interview with Mirtha Legrand from her lunch show."
 
 Video files are much larger than audio files. When a video is already on your computer, give
 Claude its path instead of attaching it to the chat, so it doesn't have to travel through the chat

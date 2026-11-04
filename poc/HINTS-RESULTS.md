@@ -3,7 +3,7 @@
 This page records what the `hints` parameter of the `transcribe` tool does to transcripts. Whisper
 reads a prompt as if it were the transcript of the audio that came before the recording, so a list
 of the names that a recording mentions nudges Whisper toward those spellings. The server joins the
-hints into a prompt such as `Ana Orihuela, Whisper.net, MCPB.` and passes it to every 30-second
+hints into a prompt such as `Mirtha Legrand, Whisper.net, MCPB.` and passes it to every 30-second
 window that Whisper decodes.
 
 ## Verdict
