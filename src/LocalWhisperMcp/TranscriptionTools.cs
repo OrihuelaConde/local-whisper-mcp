@@ -28,7 +28,7 @@ internal sealed class TranscriptionTools
     /// <returns>The transcript in the requested format.</returns>
     [McpServerTool(Name = "transcribe", Title = "Transcribe audio", ReadOnly = true, Idempotent = true, OpenWorld = false)]
     [Description(
-        "Transcribes an audio file on this computer with Whisper. The audio never leaves the computer. " +
+        "Transcribes an audio or video file on this computer with Whisper. The audio never leaves the computer. " +
         "Reads WAV, Ogg Opus (WhatsApp and Telegram voice notes), and MP3; other formats, such as M4A, need ffmpeg. " +
         "The file must be in the inbox folder or in one of the allowed folders that the status tool lists. " +
         "To transcribe a file that isn't on this computer yet, such as a chat attachment, copy it into the inbox: " +

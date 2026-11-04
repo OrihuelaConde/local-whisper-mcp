@@ -13,9 +13,9 @@ characters.
 
 - **Names come out right more often.** On FLEURS Spanish, the share of names spelled as in the
   reference goes from 80.6% to 90.1% with each recording's own names, and to 94.0% when those
-  names are mixed with eight names from other recordings. On FLEURS English it goes from 79.4% to
-  84.4%. With each recording's own names, the word error rate drops by 0.39 points on Spanish and
-  0.48 on English, and neither drop is chance.
+  names are mixed with eight names from other recordings. On FLEURS English, own names take it
+  from 79.4% to 83.8%. With each recording's own names, the word error rate drops by 0.39 points on
+  Spanish and 0.48 on English, and neither drop is chance.
 - **Whisper doesn't write names that nobody said.** No transcript in any test set has a name from
   the list that the reference lacks. A list of names that the audio doesn't contain leaves the
   error rate of FLEURS unchanged.

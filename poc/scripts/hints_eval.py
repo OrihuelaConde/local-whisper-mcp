@@ -142,7 +142,7 @@ def write_prompts(path, prompts):
 
 
 def hint_prompt(terms):
-    """Builds the prompt the way the server's HintPrompt does: 'A, B, C.'."""
+    """Joins the terms with the same separators as the server's HintPrompt: 'A, B, C.'. It doesn't clean, dedupe, or cap them."""
     prompt = ", ".join(terms)
     return prompt if prompt.endswith(".") else prompt + "."
 

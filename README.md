@@ -144,7 +144,7 @@ The server provides three tools:
 
 | Tool | What it does |
 |------|--------------|
-| `transcribe` | Transcribes an audio file. Its parameters are `path` (absolute), `model`, `language`, `format` (`txt`, `srt`, or `json`), `vad`, and `hints`. |
+| `transcribe` | Transcribes an audio or video file. Its parameters are `path` (absolute), `model`, `language`, `format` (`txt`, `srt`, or `json`), `vad`, and `hints`. |
 | `status` | Reports the device in use, the installed models and their sizes, downloads in progress, the inbox, the allowed folders, and the log folder. |
 | `delete_models` | Deletes downloaded models to free disk space. Its description tells Claude to confirm with you first. |
 

@@ -47,6 +47,12 @@ internal static class HintsEvalProgram
 
         var language = options.GetValueOrDefault("language", "auto");
         var vad = options.GetValueOrDefault("vad", "auto");
+        if (vad is not ("auto" or "on" or "off"))
+        {
+            Console.Error.WriteLine($"--vad takes auto, on, or off, not {vad}.");
+            return 2;
+        }
+
         var sharedPrompt = options.GetValueOrDefault("prompt");
         var prompts = options.TryGetValue("prompts", out var promptsPath)
             ? File.ReadLines(promptsPath, Encoding.UTF8)

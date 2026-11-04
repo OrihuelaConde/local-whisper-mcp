@@ -49,7 +49,7 @@ Many users reach this path right after installing the skill, with a recording wa
 
 Local Whisper reads WAV, Ogg Opus (WhatsApp and Telegram voice notes), and MP3 on its own. When the recording is any other format, such as M4A (iPhone voice memos and many recorder apps), FLAC, or a video, add a step: install ffmpeg, with `winget install --id Gyan.FFmpeg` on Windows or `brew install ffmpeg` on a Mac.
 
-When the user says they already installed the extension, the likely cause is that this chat started before the install and can't see it: tell them to start a new chat and ask again there, and give the steps only if a new chat doesn't find it either.
+When the user says they already installed the extension, the likely cause is that this chat started before the install and can't see it: tell them to start a new chat that can reach the computer, in the Claude desktop app or in claude.ai linked to the computer with **+** > **Devices**, and ask again there. Give the steps only if that new chat doesn't find it either.
 
 Pick the steps by where this session runs:
 
@@ -67,7 +67,7 @@ The path is done when the user has the steps for their case.
 - `language`: omit it to detect the language; pass a code such as `es` or `en` when the user states the language.
 - `format`: `txt` by default, `srt` for subtitles, and `json` for segments with start and end times in seconds.
 - `hints`: pass it only when `transcribe` lists a `hints` parameter; Local Whisper has it from version 1.1.0. Names that are likely to be said in this audio, spelled the way the transcript should write them, such as people, places, companies, or products that the user, the conversation, or the file name mentioned. Up to about eight, the ones most likely to be misspelled first, within 120 characters. Omit it when you don't know any: names that the audio doesn't contain can make a short recording slightly worse. Don't pass instructions or sample sentences; Whisper reads the hints as text that came before the audio.
-- The user gave names but `transcribe` has no `hints` parameter: transcribe without them, and after the transcript say once that Local Whisper 1.1.0 or later can take those names to spell them right, from https://github.com/OrihuelaConde/local-whisper-mcp/releases/latest.
+- The user gave names but `transcribe` has no `hints` parameter: transcribe without them, and after the transcript say once that Local Whisper 1.1.0 or later can take those names to spell them right, from the install table, https://github.com/OrihuelaConde/local-whisper-mcp#install.
 - `vad` and `model`: keep the defaults unless the user asks otherwise.
 - A long transcript that repeats one phrase many times: call `transcribe` again without `hints`.
 - A reply that the model is still downloading comes only on first use: tell the user, wait about a minute, and call `transcribe` again. `status` shows the download's progress.
