@@ -17,14 +17,28 @@ The plugin carries one skill and no code. The skill tells Claude the following:
 
 ## Install
 
-The plugin doesn't include the server. Install the Local Whisper MCP server on your computer as
-described in the [installation guide](https://github.com/OrihuelaConde/local-whisper-mcp#install).
+The plugin doesn't include the server, so install Local Whisper on your computer first. Each
+download is in the [install table](https://github.com/OrihuelaConde/local-whisper-mcp#install).
 
-To add the plugin to Claude Code, run the following command in a session:
+To use it in claude.ai or the Claude desktop app, follow these steps:
+
+1. Install the [Claude desktop app](https://claude.ai/download) on your computer, and sign in.
+2. Download the Local Whisper extension for your system, open the file, and click **Install** in
+   Claude Desktop.
+3. Start a new chat in Claude Desktop and ask Claude to transcribe a file by its path. To attach
+   the file instead, start a claude.ai chat linked to your computer: click **+** in the message
+   box, choose **Devices**, and pick your computer under **Run tasks on**.
+
+To use it in Claude Code, register the server as described in the
+[Claude Code guide](https://github.com/OrihuelaConde/local-whisper-mcp#claude-code), and then run
+the following command in a session to add the plugin:
 
 ```text
 /plugin install local-whisper --marketplace OrihuelaConde/claude-plugins
 ```
+
+If you ask for a transcript before the server is reachable, Claude gives you these steps instead of
+sending the recording anywhere else.
 
 ## Use
 

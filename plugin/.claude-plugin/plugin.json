@@ -2,7 +2,7 @@
   "name": "local-whisper",
   "displayName": "Local Whisper",
   "version": "1.1.0",
-  "description": "Skill for the Local Whisper MCP server: tells Claude how to transcribe audio and video with Whisper on your computer, and how to connect the server when it isn't reachable",
+  "description": "Transcribe audio and video with Whisper on your own computer, so recordings never leave it. Works with the free Local Whisper extension for the Claude desktop app, or its server in Claude Code; the skill tells Claude how to use it and walks you through the setup when it's missing",
   "author": { "name": "José Luis Orihuela Conde", "url": "https://github.com/OrihuelaConde" },
   "homepage": "https://github.com/OrihuelaConde/local-whisper-mcp",
   "repository": "https://github.com/OrihuelaConde/local-whisper-mcp",
