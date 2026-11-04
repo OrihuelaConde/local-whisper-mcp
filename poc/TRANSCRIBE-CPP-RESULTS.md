@@ -19,8 +19,8 @@ where Whisper keeps a small lead. Cohere Transcribe doesn't earn a place.
   faster, with 4.3% errors against 7.8%. It's also faster than Whisper `base`, which makes 16.9%.
 - **Memory.** Parakeet-ultra uses about the same VRAM and RAM as Whisper. Cohere Transcribe uses
   twice the VRAM and, on the CPU, three times the RAM.
-- **Cohere Transcribe.** It's worse than Whisper on both Argentinian sets, turns about half of the
-  voseo into tuteo, and gives no timestamps, so it can't produce `srt` output.
+- **Cohere Transcribe.** It's worse than Whisper on both Argentinian sets, loses about half of the
+  voseo forms, and gives no timestamps, so it can't produce `srt` output.
 
 Parakeet-ultra has limits that Whisper doesn't: it covers 25 languages, takes no prompt or
 vocabulary, and has a CC-BY-4.0 license. The language hint has no effect on its transcripts.
@@ -46,9 +46,9 @@ of the test set. All engines get the same samples, because
 The test machine runs Windows 11 with an NVIDIA GeForce RTX 3080 (10 GB, driver 616.92) and an
 Intel Core i7-12700F, the processor that Windows reports. All engines use 8 CPU threads and Vulkan
 on the GPU. Each engine ran on this machine in the same session, and Whisper's transcripts match the
-stored Gemma baseline word for word. On the CPU, Whisper takes 1.7 to 1.9 times as long as the
-figures in GEMMA-RESULTS.md, which name a different processor, so compare the CPU figures only
-within this page.
+stored Gemma baseline word for word. On 5-second recordings on the CPU, Whisper takes 1.7 to 2.0
+times as long as the figures in GEMMA-RESULTS.md, which name a different processor, so compare the
+CPU figures only within this page.
 
 ## Accuracy
 
