@@ -29,9 +29,10 @@ To use it in claude.ai or the Claude desktop app, follow these steps:
 3. For recordings other than WAV, Ogg Opus, and MP3, such as M4A or video, install
    [ffmpeg](https://ffmpeg.org): `winget install --id Gyan.FFmpeg` on Windows, or
    `brew install ffmpeg` on a Mac.
-4. Start a new chat in Claude Desktop and ask Claude to transcribe a file by its path. To attach
-   the file instead, from a browser or the mobile app, start a claude.ai chat linked to your
-   computer: click **+** in the message box, choose **Devices**, and pick your computer.
+4. Start a new chat in Claude Desktop, attach the recording, and ask Claude to transcribe it. From
+   a browser or the mobile app, link the chat to your computer first: click **+** in the message
+   box, choose **Devices**, and pick your computer. For many recordings or a large video, give
+   Claude the files' paths on your computer instead of attaching them.
 
 To use it in Claude Code, register the server as described in the
 [Claude Code guide](https://github.com/OrihuelaConde/local-whisper-mcp#claude-code), and then run
