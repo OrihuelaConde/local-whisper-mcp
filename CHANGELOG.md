@@ -27,9 +27,10 @@ version's section as its release notes.
 
 - When Local Whisper isn't reachable from a chat, the skill gives a short numbered setup that works
   from claude.ai in a browser, the mobile app, and the Claude desktop app: install the desktop app,
-  install the extension from the README's install table, and ask again in a new chat. It links the
-  install table instead of the releases page, and says that the first transcription downloads
-  the model once.
+  install the extension from the README's install table, move a recording from the phone to the
+  computer, and ask again in a new chat, with the file's path or attached in a linked chat. It adds
+  the ffmpeg step only for formats that need it, links the install table instead of the releases
+  page, and says that the first transcription downloads the model once.
 - In a Claude Desktop chat, the skill asks for a chat attachment's path on the computer and says how
   to copy it on Windows and macOS.
 - The plugin's listing says that it works with the Local Whisper extension or server, and its README

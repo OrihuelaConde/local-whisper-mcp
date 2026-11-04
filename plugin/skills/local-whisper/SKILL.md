@@ -42,16 +42,21 @@ The path is done when `transcribe` returns text.
 
 Transcription stays on the user's computer even when this session could install Whisper or call a speech-to-text service: keeping the audio on the user's machine is the reason they chose Local Whisper. Don't transcribe the audio another way, guess what it says, or suggest cloud services.
 
-Many users reach this path right after installing the skill, with a recording waiting, so this reply is their first impression. Lead with the steps, in the user's language and as a short numbered list, after one sentence on why: Local Whisper runs on their computer, and this chat can't reach it yet. Say they can skip the steps they've already done. End by saying that the first transcription downloads the Whisper model once, about 900 MB, and that you can summarize or work with the transcript after that. Every download is in the install table, https://github.com/OrihuelaConde/local-whisper-mcp#install, which links the right file for each system and app.
+Many users reach this path right after installing the skill, with a recording waiting, so this reply is their first impression. Open with one sentence on why: Local Whisper runs on their computer, and this chat can't reach it yet. Then give the steps as a short numbered list, in the user's language. End by saying that the first transcription downloads the Whisper model once, about 900 MB, and that you can summarize or work with the transcript after that. Every download is in the install table, https://github.com/OrihuelaConde/local-whisper-mcp#install, which links the right file for each system and app.
+
+Local Whisper reads WAV, Ogg Opus (WhatsApp and Telegram voice notes), and MP3 on its own. When the recording is any other format, such as M4A (iPhone voice memos and many recorder apps), FLAC, or a video, add a step: install ffmpeg, with `winget install --id Gyan.FFmpeg` on Windows or `brew install ffmpeg` on a Mac.
 
 Pick the steps by where this session runs:
 
 - **Claude Code on the user's computer** (the terminal, an IDE, or the Code tab of the Claude desktop app): the server isn't registered. Tell them to download the archive for their system from the install table, extract it to a folder they keep, run `claude mcp add local-whisper -- PATH_TO_EXECUTABLE` with the full path of `local-whisper-mcp` (`local-whisper-mcp.exe` on Windows), and start a new session.
-- **A chat without device tools** (no `device_commit_files`), in claude.ai in a browser, the mobile app, or the Claude desktop app. You can't tell which one, so give steps that work from any of them:
-  1. Install the Claude desktop app on the computer, from https://claude.ai/download, and sign in.
-  2. Download the Local Whisper extension for their system from the install table, open the file, and click **Install** in Claude Desktop.
-  3. Start a new chat in Claude Desktop and ask again with the file's full path, such as `C:\Users\Name\Downloads\note.ogg`. To attach the file instead, start a claude.ai chat linked to the computer: click **+** in the message box, choose **Devices**, and pick the computer under **Run tasks on**. A linked chat needs the computer on, with the Claude desktop app open.
-- **A chat with device tools but no Local Whisper tools**: the chat reaches the computer, but the server isn't installed there. Tell them to download the extension for their system from the install table, open it in the Claude desktop app on that computer, click **Install**, then start a new chat and ask again.
+- **A chat without device tools** (no `device_commit_files`): claude.ai in a browser, the mobile app, a Claude desktop app chat, or Cowork. These look the same from here, so write the steps for the user to pick their case, instead of guessing it:
+  1. If the computer with the recording doesn't have the Claude desktop app, install it from https://claude.ai/download and sign in with this same account.
+  2. Download the Local Whisper extension for their system from the install table, open the file, and click **Install** in Claude Desktop. If it's already installed, check that it's turned on in **Settings > Extensions**.
+  3. If the recording is only on their phone, send it to the computer first, for example by email or a shared folder.
+  4. Ask again in a new chat, in one of two ways:
+     - In the Claude desktop app, with the file's full path, such as `C:\Users\Name\Downloads\note.m4a` or `/Users/Name/Downloads/note.m4a`. To copy it, right-click the file and choose **Copy as path** on Windows, or hold Option, right-click it, and choose **Copy as Pathname** on a Mac.
+     - In claude.ai, linked to the computer, to attach the file: click **+** in the message box, choose **Devices**, pick the computer under **Run tasks on**, and attach the file. The computer must be on, with the Claude desktop app open.
+- **A chat with device tools but no Local Whisper tools**: the chat reaches the computer, but the server isn't installed there. Tell them to download the extension for their system from the install table, open it in the Claude desktop app on that computer, and click **Install**, or turn it on in **Settings > Extensions** if it's already there. Then start a new chat, link it to the computer again with **+** > **Devices**, attach the file, and ask.
 
 The path is done when the user has the steps for their case.
 
