@@ -123,6 +123,15 @@ internal sealed class TranscriptionTools
         {
             throw new McpException($"Whisper doesn't support the language '{language}'. Use a code such as en or es, or auto.", exception);
         }
+        catch (Exception exception) when (exception.Message.StartsWith("Failed to load native whisper library", StringComparison.Ordinal))
+        {
+            // Whisper.net throws a plain Exception, and keeps the failure until the process restarts.
+            // On Linux the usual cause is a missing OpenMP runtime, which the CPU library links to.
+            var fix = OperatingSystem.IsLinux()
+                ? "On Linux, install the OpenMP runtime, with sudo apt install libgomp1 on Debian and Ubuntu or your distribution's libgomp package, and then restart Claude."
+                : "Reinstall Local Whisper from the latest release, and then restart Claude.";
+            throw new McpException($"Whisper's native library couldn't load on this computer. {exception.Message} {fix}", exception);
+        }
     }
 
     /// <summary>Describes the server: device, models, downloads, and the folders it may read.</summary>

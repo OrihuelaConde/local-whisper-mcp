@@ -16,7 +16,9 @@ version's section as its release notes.
   Claude when to pass them, and to pass them only to a server that lists the parameter. The
   measurements are in `poc/HINTS-RESULTS.md`.
 - Claude Desktop extension (`.mcpb`) for Linux x64 and arm64, for the beta of Claude Desktop on
-  Ubuntu and Debian.
+  Ubuntu and Debian. Linux needs the OpenMP runtime (`libgomp1`), which the README now lists.
+- When Whisper's native library doesn't load, `transcribe` returns the loader's error and how to
+  fix it, such as installing `libgomp1` on Linux, instead of a generic error.
 - The Local Whisper logo and a short demo video at the start of the README, and the logo's icon in
   the Claude Desktop extension, the Claude Code plugin's listing, and the MCP Registry entry.
 - A "Design notes" section in the README that links the measurements behind the design: the

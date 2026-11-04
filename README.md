@@ -199,6 +199,7 @@ local-whisper-mcp download large-v3-turbo-q8_0
 - On x64, a processor with AVX2.
 - For the GPU: a Vulkan driver on Windows and Linux x64, or Apple Silicon for Metal. Without one,
   the server uses the CPU.
+- On Linux, the OpenMP runtime: `sudo apt install libgomp1` on Debian and Ubuntu.
 - Optional: ffmpeg, for formats other than WAV, Ogg Opus, and MP3.
 
 The release files aren't signed. On macOS, if Gatekeeper blocks the executable from the archive,
