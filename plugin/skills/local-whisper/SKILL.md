@@ -11,8 +11,8 @@ Local Whisper is an MCP server on the user's computer that runs Whisper there. T
 
 Check this session's tools, then follow one path:
 
-- **Linked session**: the Local Whisper tools and the device file tools (`device_commit_files`) are both here. The session runs in the cloud and reaches the computer through the Claude desktop app.
-- **Local session**: the Local Whisper tools are here without device file tools. The server runs on the same computer as this session.
+- **Linked session**: the Local Whisper tools and the device file tools (`device_commit_files`) are both here. This is a Claude chat, on the web, the mobile app, or the desktop app, linked to the user's computer: the session runs in the cloud and reaches the computer through the Claude desktop app.
+- **Local session**: the Local Whisper tools are here without device file tools, as in Claude Code on the user's computer. The server runs on the same computer as this session.
 - **Unreachable**: no Local Whisper tools, even after a search.
 
 ## Linked session
@@ -34,8 +34,8 @@ A recording that's already on the computer doesn't need to travel through the ch
 1. Call `status` and note `inbox` and `allowedRoots`.
 2. Find the audio on the computer:
    - Inside the inbox or an allowed root: use its absolute path as it is.
-   - Elsewhere on the computer: copy it into the inbox, which the server cleans after transcribing.
-   - Only in the chat, as an attachment, with no tool in this session that can copy it to the computer (as in Cowork or Claude Code): the server can't read it there. Ask for the file's full path on the computer, and say how to copy it: on Windows, right-click the file and choose **Copy as path**; on a Mac, hold Option, right-click the file, and choose **Copy as Pathname**.
+   - Elsewhere on the computer: copy it into the inbox, which the server cleans after transcribing. If this session has no tool to copy files, ask the user to move it into the inbox or one of the allowed folders.
+   - Only in the chat, as an attachment, with no tool in this session that can copy it to the computer: the server can't read it there. Ask for the file's full path on the computer, and say how to copy it: on Windows, right-click the file and choose **Copy as path**; on a Mac, hold Option, right-click the file, and choose **Copy as Pathname**.
 3. Call `transcribe` with that path.
 
 The path is done when `transcribe` returns text.
@@ -53,7 +53,7 @@ When the user says they already installed the extension, the likely cause is tha
 Pick the steps by where this session runs:
 
 - **Claude Code on the user's computer** (the terminal, an IDE, or the Code tab of the Claude desktop app): the server isn't registered. Tell them to download the archive for their system from the install table, extract it to a folder they keep, run `claude mcp add local-whisper -- PATH_TO_EXECUTABLE` with the full path of `local-whisper-mcp` (`local-whisper-mcp.exe` on Windows), and start a new session.
-- **A chat without device tools** (no `device_commit_files`): claude.ai in a browser, the mobile app, a Claude desktop app chat, or Cowork. These look the same from here, so write the steps for the user to pick their case, instead of guessing it:
+- **A chat without device tools** (no `device_commit_files`): a Claude chat that isn't linked to a computer, on the web, the mobile app, or the desktop app. These look the same from here, so write the steps for the user to pick their case, instead of guessing it:
   1. If their computer doesn't have the Claude desktop app, install it from https://claude.ai/download and sign in with this same account.
   2. Download the Local Whisper extension for their system from the install table, open the file (if the system asks which app to open it with, choose Claude), and click **Install** in Claude Desktop. If it's already installed, check that it's turned on in **Settings > Extensions**.
   3. Start a new chat, attach the recording, and ask again. The chat can be in the Claude desktop app, or in claude.ai in a browser or the mobile app linked to the computer: click **+** in the message box, choose **Devices**, and pick the computer. A linked chat also works for a recording that's only on their phone: the copy goes to the computer, and the server deletes it after transcribing. The computer must be on, with the Claude desktop app open.
