@@ -23,8 +23,8 @@ where Whisper keeps a small lead. Cohere Transcribe doesn't earn a place.
   voseo forms, and gives no timestamps, so it can't produce `srt` output.
 
 - **Long audio.** With a guard against repetition loops, Parakeet-ultra makes fewer errors than
-  Whisper on every set of 5-minute files. It's also 1.4 to 2.4 times faster, and it skips far less
-  speech: 100 words in 48 files, where Whisper skips 586.
+  Whisper on every set of 5-minute files. It's also 1.4 to 2.3 times faster, and it skips far less
+  speech: 109 words in 48 files, where Whisper skips 586.
 - **Noise.** Parakeet-ultra ties with Whisper at 20 dB and beats it at 10, 5, and 0 dB. On
   recordings without speech it writes nothing, where Whisper writes "Gracias." on 9 of 20.
 - **Repetition loops.** Without the guard, Parakeet-ultra gets stuck on one file of 48 and on one
@@ -36,7 +36,7 @@ where Whisper keeps a small lead. Cohere Transcribe doesn't earn a place.
 
 Parakeet-ultra has limits that Whisper doesn't: it covers 25 languages, takes no prompt or
 vocabulary, and has a CC-BY-4.0 license. The language hint has no effect on its transcripts. It
-also needs more VRAM on long files: 2.3 to 2.8 GiB against 1.4 to 1.9 GiB.
+also needs more VRAM on long files: 2.2 to 2.7 GiB against 1.4 to 1.9 GiB.
 
 ## What was compared
 
@@ -196,8 +196,8 @@ words on English B include a loop of 27 words.
 | English A | 25 min | 27 s | 12 s | 1.9 GiB | 2.7 GiB |
 | English B | 25 min | 22 s | 12 s | 1.8 GiB | 2.2 GiB |
 
-Parakeet-ultra's lead is smaller here than on short recordings because VAD saves Whisper from
-encoding the silence between sentences. On the CPU, Parakeet-ultra takes 3.7 s per audio minute on
+Parakeet-ultra's lead is smaller here than on short recordings, likely because Whisper encodes full
+30-second windows on long files instead of one mostly empty window per recording. On the CPU, Parakeet-ultra takes 3.7 s per audio minute on
 English A, with a peak of 1.7 GiB of RAM and the same error rate within 0.1 points.
 
 ## Noise
@@ -238,8 +238,8 @@ frame until the budget runs out: 3,112 tokens in 80 ms on the long file. The res
 never decoded. `transcribe_run` returns success, and the library's repetition guard doesn't cover the
 Parakeet family.
 
-The file's token timestamps make this visible: speech reaches at most 21 tokens in 2 seconds across
-the long sets, and the loops reach more than 1,400. With `--loop-guard`, 60 tokens in 2 seconds
+The file's token timestamps make this visible: speech reaches at most 21 tokens in 2 seconds on the
+four long sets without a loop, and the loops reach more than 1,400. With `--loop-guard`, 60 tokens in 2 seconds
 triggers a second run of that stretch of audio, cut in two where the decoder got stuck. In every run
 of the long and noisy sets, the guard fired twice, on those two recordings, and changed nothing else.
 The repaired file has 27 errors against Whisper's 18, and the repaired recording has 6 against 8.
