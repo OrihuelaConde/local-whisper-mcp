@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <PublishAot>true</PublishAot>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AssemblyName>tcpp-aot</AssemblyName>
+    <!-- The native library and its backend modules, as the transcribe-cpp-native wheel ships them. -->
+    <TcppNativeDir Condition="'$(TcppNativeDir)' == ''">$(MSBuildThisFileDirectory)..\..\models\transcribe-cpp\venv\Lib\site-packages\transcribe_cpp_native\_native</TcppNativeDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="$(TcppNativeDir)\*.dll" Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

@@ -22,8 +22,21 @@ where Whisper keeps a small lead. Cohere Transcribe doesn't earn a place.
 - **Cohere Transcribe.** It's worse than Whisper on both Argentinian sets, loses about half of the
   voseo forms, and gives no timestamps, so it can't produce `srt` output.
 
+- **Long audio.** With a guard against repetition loops, Parakeet-ultra makes fewer errors than
+  Whisper on every set of 5-minute files. It's also 1.4 to 2.4 times faster, and it skips far less
+  speech: 100 words in 48 files, where Whisper skips 586.
+- **Noise.** Parakeet-ultra ties with Whisper at 20 dB and beats it at 10, 5, and 0 dB. On
+  recordings without speech it writes nothing, where Whisper writes "Gracias." on 9 of 20.
+- **Repetition loops.** Without the guard, Parakeet-ultra gets stuck on one file of 48 and on one
+  noisy recording of 1,200, and it writes more than 1,000 extra words each time. The library
+  doesn't report it. A guard of about 30 lines in the caller repairs both cases.
+- **Native AOT.** A .NET 10 Native AOT program runs transcribe.cpp through its C API, with the DLLs
+  from the Python wheel, and writes the same bytes as the Python binding. The native files take
+  about as much space as Whisper.net's.
+
 Parakeet-ultra has limits that Whisper doesn't: it covers 25 languages, takes no prompt or
-vocabulary, and has a CC-BY-4.0 license. The language hint has no effect on its transcripts.
+vocabulary, and has a CC-BY-4.0 license. The language hint has no effect on its transcripts. It
+also needs more VRAM on long files: 2.3 to 2.8 GiB against 1.4 to 1.9 GiB.
 
 ## What was compared
 
@@ -78,7 +91,8 @@ The next table counts the voseo forms of the references that each transcript kee
 | Argentinian voseo | 125 | 93 | 90 | 61 |
 
 On the 150 voseo recordings, Cohere Transcribe writes "puedes" for "podés" 24 times, Parakeet-ultra
-11, and Whisper 8. No transcript has a repetition loop, and no run failed or was truncated.
+11, and Whisper 8. No transcript of these test sets has a repetition loop, and no run failed or was
+truncated.
 
 ## Speed and memory
 
@@ -144,6 +158,135 @@ model loaded once and the CPU only. The difference column compares each rate wit
 Whisper's cost per recording has a floor, because it encodes a 30-second window however short the
 audio is. Parakeet-ultra's transcripts are the same word for word on the CPU and on the GPU.
 
+## Long audio
+
+Five sets of files of about 5 minutes, which the hints evaluation built by joining FLEURS recordings
+with `hints_eval.py long`: 36 Spanish files and 12 English files, 4.0 hours in all. "Guard" is
+Parakeet-ultra with `--loop-guard`, described in [Repetition loops](#repetition-loops). Both engines
+run on the GPU, and Whisper gets the server's VAD rule.
+
+| Set | Whisper | Parakeet-ultra | Guard | Difference of the guard run from Whisper |
+|-----|---------|----------------|-------|------------------------------------------|
+| Spanish A | 3.91% (2.96 to 5.03) | 3.14% (2.40 to 3.82) | 3.14% (2.40 to 3.82) | -0.77 (-2.12 to +0.25) |
+| Spanish B | 3.65% (2.77 to 4.71) | 33.23% (2.48 to 97.81) | 2.92% (2.46 to 3.42) | -0.73 (-1.73 to +0.12) |
+| Spanish C | 4.35% (3.47 to 5.28) | 3.24% (2.57 to 3.96) | 3.24% (2.57 to 3.96) | -1.10 (-2.17 to -0.04) |
+| English A | 19.30% (14.49 to 24.88) | 8.29% (6.24 to 11.26) | 8.29% (6.24 to 11.26) | -11.00 (-17.89 to -4.47) |
+| English B | 24.27% (13.25 to 39.10) | 7.62% (5.87 to 9.90) | 7.62% (5.87 to 9.90) | -16.65 (-32.51 to -4.41) |
+
+The next table counts large failures. A file has a large failure when it has at least twice the
+errors of the other engine and at least 20 more. Skipped and inserted stretches compare each
+transcript with the reference and count those of 15 words or more.
+
+| Set | Large failures: Whisper, Parakeet-ultra | Skipped words: Whisper, Parakeet-ultra | Inserted words: Whisper, Parakeet-ultra |
+|-----|-----------------------------------------|----------------------------------------|-----------------------------------------|
+| Spanish A | 1, 0 | 39, 0 | 20, 0 |
+| Spanish B | 2, 1 | 52, 0 | 0, 2,336 |
+| Spanish C | 2, 0 | 90, 0 | 0, 0 |
+| English A | 3, 0 | 190, 61 | 0, 0 |
+| English B | 4, 0 | 215, 48 | 193, 0 |
+
+Parakeet-ultra's only inserted stretch is the loop that the guard repairs. Whisper's 193 inserted
+words on English B include a loop of 27 words.
+
+| Set | Audio | Whisper | Parakeet-ultra | VRAM: Whisper | VRAM: Parakeet-ultra |
+|-----|-------|---------|----------------|---------------|----------------------|
+| Spanish A | 63 min | 52 s | 38 s | 1.8 GiB | 2.2 GiB |
+| Spanish B | 63 min | 76 s | 39 s | 1.8 GiB | 2.2 GiB |
+| Spanish C | 63 min | 91 s | 48 s | 1.4 GiB | 2.2 GiB |
+| English A | 25 min | 27 s | 12 s | 1.9 GiB | 2.7 GiB |
+| English B | 25 min | 22 s | 12 s | 1.8 GiB | 2.2 GiB |
+
+Parakeet-ultra's lead is smaller here than on short recordings because VAD saves Whisper from
+encoding the silence between sentences. On the CPU, Parakeet-ultra takes 3.7 s per audio minute on
+English A, with a peak of 1.7 GiB of RAM and the same error rate within 0.1 points.
+
+## Noise
+
+Every recording of FLEURS Spanish, with noise mixed in by `tcpp_noise.py`. Each recording gets one
+kind of noise: white, pink, or babble, which sums eight stretches of FLEURS English. The noise is
+synthetic, so these figures compare the engines and don't predict a real room. The table uses the
+guard run; the plain run differs only at 0 dB, on the recording in
+[Repetition loops](#repetition-loops).
+
+| Signal-to-noise ratio | Noise | Whisper | Parakeet-ultra | Difference from Whisper | Large failures: Whisper, Parakeet-ultra |
+|-----------------------|-------|---------|----------------|-------------------------|-----------------------------------------|
+| 20 dB | All | 3.3% (2.7 to 3.9) | 3.2% (2.7 to 3.9) | -0.1 (-0.5 to +0.3) | 0, 0 |
+| 10 dB | All | 4.5% (3.7 to 5.2) | 3.8% (3.2 to 4.5) | -0.6 (-1.1 to -0.1) | 0, 0 |
+| 5 dB | All | 6.9% (5.8 to 8.2) | 5.0% (4.3 to 5.8) | -1.9 (-3.0 to -1.0) | 1, 0 |
+| 0 dB | All | 14.8% (12.6 to 17.1) | 10.2% (8.7 to 11.9) | -4.6 (-6.3 to -3.0) | 2, 0 |
+| 0 dB | White | 13.8% (10.8 to 17.1) | 9.8% (7.6 to 12.2) | -4.0 (-5.9 to -2.2) | 0, 0 |
+| 0 dB | Pink | 9.2% (7.5 to 10.9) | 6.6% (5.1 to 8.3) | -2.6 (-3.7 to -1.5) | 0, 0 |
+| 0 dB | Babble | 21.2% (16.3 to 26.8) | 14.1% (10.9 to 18.1) | -7.1 (-11.5 to -3.0) | 2, 0 |
+
+Each noisy set takes Whisper 127 to 145 s and Parakeet-ultra 35 to 36 s.
+
+On the 20 recordings without speech from `hints_eval.py noise` (white noise, brown noise, hum, and
+room tone), Parakeet-ultra writes an empty transcript every time. Whisper writes "Gracias." on 9 and
+"..." on the other 11.
+
+## Repetition loops
+
+Parakeet-ultra fell into a loop on `long-s1-03.wav` in Spanish B and on one recording at 0 dB, out of
+48 long files and 1,200 noisy recordings. No loop appears in the test sets without added noise. Both
+loops repeat "de la Universidad", on the CPU and on the GPU alike, and they turn 18 errors into 2,363
+and 8 errors into 1,088.
+
+The cause is in how the decoder spends its symbols. The model file sets
+`stt.parakeet.tdt.symbol_budget` to `global`, which allows 10 symbols per encoder frame over the
+whole segment instead of per frame. A decoder that keeps predicting a duration of zero stays on one
+frame until the budget runs out: 3,112 tokens in 80 ms on the long file. The rest of that segment is
+never decoded. `transcribe_run` returns success, and the library's repetition guard doesn't cover the
+Parakeet family.
+
+The file's token timestamps make this visible: speech reaches at most 21 tokens in 2 seconds across
+the long sets, and the loops reach more than 1,400. With `--loop-guard`, 60 tokens in 2 seconds
+triggers a second run of that stretch of audio, cut in two where the decoder got stuck. In every run
+of the long and noisy sets, the guard fired twice, on those two recordings, and changed nothing else.
+The repaired file has 27 errors against Whisper's 18, and the repaired recording has 6 against 8.
+
+Two cases are a small sample, so the threshold has no margin measured on other loops. A loop slower
+than 60 tokens in 2 seconds would pass the guard.
+
+## Native AOT
+
+[`poc/TcppAot`](TcppAot) is a .NET 10 Native AOT console program that calls the C API of
+transcribe.cpp through `LibraryImport`. It uses the DLLs of the `transcribe-cpp-native` 0.4.1 wheel
+as they are, with no native build. It checks the size of each struct it passes against
+`transcribe_abi_struct_size`.
+
+Its transcripts of `es-short.wav` and of one FLEURS recording are byte-identical to those of the
+Python binding, on Vulkan and on the CPU.
+
+| Device | Load | Transcribe `es-short.wav` | Peak RAM |
+|--------|------|---------------------------|----------|
+| Vulkan | 0.9 s | 0.20 s | 0.8 GiB |
+| CPU | 0.4 s | 1.16 s | 1.2 GiB |
+
+Load includes 0.2 s to load the backend modules. The first Vulkan run of a new program takes 10.6 s
+to transcribe, and 0.2 s from then on. [RESULTS.md](RESULTS.md) records about 7 s for the same first
+run with Whisper.
+
+| File | Size | Purpose |
+|------|------|---------|
+| `tcpp-aot.exe` | 1.5 MiB | The program |
+| `transcribe.dll`, `ggml.dll`, `ggml-base.dll` | 2.7 MiB | The library |
+| `ggml-vulkan.dll` | 41.6 MiB | Vulkan backend |
+| `ggml-cpu-*.dll`, nine files | 9.3 MiB | One CPU backend per instruction set; the library picks the best at run time |
+
+The library's files take 53.6 MiB. `Whisper.net.Runtime.Vulkan` takes 57.2 MiB for `win-x64`. All nine
+CPU files matter: with only `ggml-cpu-x64.dll`, `es-short.wav` takes 8 to 10 s on the CPU instead of
+1.2 s.
+
+- **Dependencies.** The DLLs need the Visual C++ runtime (`MSVCP140.dll`, `VCRUNTIME140.dll`, and
+  `VCRUNTIME140_1.dll`) and `vulkan-1.dll`, as Whisper.net's do.
+- **Fallback.** With `ggml-vulkan.dll` removed and the `auto` backend, the program runs on the CPU.
+  A machine without a Vulkan driver wasn't tested.
+- **Backend loading.** `transcribe_init_backends_default` looks only next to `transcribe.dll`, so the
+  files can't be embedded in the executable.
+
+No blocker appeared. The C API is pre-1.0, and the Python binding refuses a library with a different
+base version, so a server needs to pin one version and update it with care.
+
 ## Findings
 
 - **Language.** With no language, Parakeet-ultra writes the same 300 transcripts on FLEURS Spanish
@@ -158,10 +301,10 @@ audio is. Parakeet-ultra's transcripts are the same word for word on the CPU and
 
 ## What this doesn't measure
 
-- Long recordings and noisy audio. Every test set here has recordings of 30 seconds or less.
-- Running transcribe.cpp from .NET under Native AOT, which is what the server would need. This
-  proof of concept uses the Python binding.
-- Other operating systems. Every figure comes from one Windows machine.
+- Real recordings with real background noise. The long files join clean recordings, and the noise
+  is synthetic.
+- Other operating systems. Every figure comes from one Windows machine, including the Native AOT run.
+- Whether an unquantized Parakeet-ultra model also loops. Only `Q8_0` was tested.
 
 ## Run the measurements
 

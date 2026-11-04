@@ -2,12 +2,17 @@
 
 Usage:
   python tcpp_transcribe.py --model GGUF --setup NAME --out DIR (--audio-dir FOLDER | --audio FILE)
-                            [--device gpu|cpu] [--language LANG|auto] [--threads N]
+                            [--device gpu|cpu] [--language LANG|auto] [--threads N] [--loop-guard]
 
 Each run is one process that loads the model once, so its load time and memory peaks belong to that
 run alone. Transcripts go to DIR/transcripts/NAME/<file name>.txt, and one JSON line goes to
 DIR/results.jsonl with the fields compare_asr.py reads. DIR must be a folder that git ignores,
 because the recordings can be private.
+
+With --loop-guard, a stretch of audio that Parakeet's decoder gets stuck on is transcribed again in
+two parts, cut where it got stuck. The decoder has a per-segment budget of symbols rather than a
+per-frame one, so it can emit thousands of tokens in one instant. The library doesn't report it as
+truncated or as a repetition, and it drops the rest of the segment.
 
 GPU memory comes from nvidia-smi, sampled every 100 ms, as the peak over the run minus the reading
 before the model loads. It measures the whole GPU, so other processes distort it.
@@ -29,6 +34,8 @@ import soundfile
 import transcribe_cpp
 
 SAMPLE_RATE = 16000
+STUCK_TOKENS = 60
+STUCK_WINDOW_MS = 2000
 
 
 class ProcessMemoryCounters(ctypes.Structure):
@@ -125,6 +132,40 @@ def read_pcm(path):
     return samples if rate == SAMPLE_RATE else resample(samples, rate)
 
 
+def stuck_time_ms(result):
+    """Returns when the decoder got stuck, or None. Speech reaches 21 tokens in 2 s; the loops reach 1,400."""
+    times = [token.t0_ms for token in result.tokens]
+    for i in range(len(times) - STUCK_TOKENS):
+        if times[i + STUCK_TOKENS] - times[i] < STUCK_WINDOW_MS:
+            return times[i]
+    return None
+
+
+def guarded_text(session, pcm, language, result, depth=0):
+    """Returns the transcript and the number of repairs, re-running any stretch where the decoder got stuck."""
+    at = stuck_time_ms(result)
+    if at is None or depth >= 3:
+        return result.text.strip(), 0
+    parts = []
+    repairs = 1
+    for segment in result.segments:
+        if not segment.t0_ms <= at <= segment.t1_ms:
+            parts.append(segment.text.strip())
+            continue
+        samples_per_ms = SAMPLE_RATE // 1000
+        cut = at * samples_per_ms
+        first = max(0, segment.t0_ms - 300) * samples_per_ms
+        # The rest of the segment was never decoded, so its end comes from the audio, not the tokens.
+        following = [other.t0_ms for other in result.segments if other.t0_ms > at]
+        last = (following[0] if following else len(pcm) // samples_per_ms) * samples_per_ms
+        for piece in (pcm[first:cut], pcm[cut:last]):
+            if len(piece) >= SAMPLE_RATE // 10:
+                text, nested = guarded_text(session, piece, language, session.run(piece, language=language), depth + 1)
+                parts.append(text)
+                repairs += nested
+    return " ".join(part for part in parts if part), repairs
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--model", required=True)
@@ -136,6 +177,7 @@ def main():
     parser.add_argument("--device", choices=["gpu", "cpu"], default="gpu")
     parser.add_argument("--language", default="auto", help="Language code, or auto for the model's own detection.")
     parser.add_argument("--threads", type=int, default=8, help="CPU threads; 8 is the server's Whisper default.")
+    parser.add_argument("--loop-guard", action="store_true", help="Transcribe again any stretch where the decoder gets stuck.")
     args = parser.parse_args()
 
     out = Path(args.out)
@@ -147,7 +189,7 @@ def main():
     started = time.perf_counter()
     start_times = os.times()
     decode_seconds = audio_seconds = transcribe_seconds = 0.0
-    words = truncated = failed = 0
+    words = truncated = failed = repairs = 0
     detected = collections.Counter()
     timestamp_kinds = collections.Counter()
     failures = []
@@ -166,10 +208,16 @@ def main():
                     audio_seconds += len(pcm) / SAMPLE_RATE
 
                     run_start = time.perf_counter()
+                    text = ""
                     try:
                         result = session.run(pcm, language=language)
+                        text = result.text.strip()
+                        if args.loop_guard:
+                            text, repaired = guarded_text(session, pcm, language, result)
+                            repairs += repaired
                     except transcribe_cpp.OutputTruncated as error:
                         result = error.partial_result
+                        text = result.text.strip()
                         truncated += 1
                     except transcribe_cpp.TranscribeError as error:
                         result = None
@@ -177,7 +225,6 @@ def main():
                         failures.append(f"{path.name}: {type(error).__name__}: {error}")
                     transcribe_seconds += time.perf_counter() - run_start
 
-                    text = result.text.strip() if result else ""
                     if result:
                         detected[result.language] += 1
                         timestamp_kinds[result.timestamp_kind] += 1
@@ -209,6 +256,7 @@ def main():
         "vramBaselineMiB": gpu.baseline,
         "words": words,
         "truncated": truncated,
+        "repairs": repairs,
         "failed": failed,
         "failures": failures[:20],
         "wallSeconds": round(time.perf_counter() - started, 2),
