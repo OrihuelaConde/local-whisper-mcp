@@ -1,2 +1,3 @@
-# Normalize line endings in the repository; checkouts use the platform default.
-* text=auto
+# Normalize line endings in the repository and use LF in every checkout. The scanner of Anthropic's
+# plugin directory refuses any line-ending rule that doesn't set LF on its own line.
+* text=auto eol=lf
