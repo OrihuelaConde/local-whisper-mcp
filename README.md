@@ -39,8 +39,8 @@ Each link downloads the file from the latest release.
 | Windows (x64) | [Download (.mcpb)][win-x64-mcpb] | [Download (.zip)][win-x64-zip] |
 | macOS with Apple Silicon | [Download (.mcpb)][osx-arm64-mcpb] | [Download (.tar.gz)][osx-arm64-tgz] |
 | macOS with an Intel processor | [Download (.mcpb)][osx-x64-mcpb] | [Download (.tar.gz)][osx-x64-tgz] |
-| Linux (x64) | Not available | [Download (.tar.gz)][linux-x64-tgz] |
-| Linux (arm64) | Not available | [Download (.tar.gz)][linux-arm64-tgz] |
+| Linux (x64) | [Download (.mcpb)][linux-x64-mcpb] | [Download (.tar.gz)][linux-x64-tgz] |
+| Linux (arm64) | [Download (.mcpb)][linux-arm64-mcpb] | [Download (.tar.gz)][linux-arm64-tgz] |
 | Any system: the skill (optional) | [Download (.zip)][skill-zip] | [Install the plugin](#the-skill) |
 
 The skill tells Claude when and how to use the server. For more information, see
@@ -49,6 +49,8 @@ The skill tells Claude when and how to use the server. For more information, see
 To check which Mac you have, choose **Apple menu > About This Mac**. A **Chip** line that starts
 with Apple, such as Apple M2, means Apple Silicon. A **Processor** line that names Intel means an
 Intel processor.
+
+Claude Desktop for Linux is a beta for Ubuntu and Debian.
 
 To verify a download, compare its SHA-256 hash with the one in `SHA256SUMS.txt`, on the
 [releases page](https://github.com/OrihuelaConde/local-whisper-mcp/releases/latest).
@@ -59,7 +61,9 @@ To verify a download, compare its SHA-256 hash with the one in `SHA256SUMS.txt`,
 [osx-arm64-tgz]: https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.0.0/local-whisper-mcp-1.0.0-osx-arm64.tar.gz
 [osx-x64-mcpb]: https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.0.0/local-whisper-mcp-1.0.0-osx-x64.mcpb
 [osx-x64-tgz]: https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.0.0/local-whisper-mcp-1.0.0-osx-x64.tar.gz
+[linux-x64-mcpb]: https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.1.0/local-whisper-mcp-1.1.0-linux-x64.mcpb
 [linux-x64-tgz]: https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.0.0/local-whisper-mcp-1.0.0-linux-x64.tar.gz
+[linux-arm64-mcpb]: https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.1.0/local-whisper-mcp-1.1.0-linux-arm64.mcpb
 [linux-arm64-tgz]: https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.0.0/local-whisper-mcp-1.0.0-linux-arm64.tar.gz
 [skill-zip]: https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.0.0/local-whisper-skill.zip
 
