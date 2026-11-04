@@ -3,7 +3,7 @@
   "name": "local-whisper-mcp",
   "display_name": "Local Whisper",
   "version": "1.1.0",
-  "description": "Transcribes audio files on your computer with Whisper, for Claude. The audio never leaves the machine.",
+  "description": "Transcribe audio and video with Whisper on your own computer, so recordings never leave it. Runs on the GPU or the CPU, and gives Claude plain text, SRT subtitles, or JSON with timestamps.",
   "author": {
     "name": "José Luis Orihuela Conde",
     "url": "https://github.com/OrihuelaConde"
@@ -45,7 +45,7 @@
   "tools": [
     {
       "name": "transcribe",
-      "description": "Transcribes an audio file on this computer with Whisper."
+      "description": "Transcribes an audio or video file on this computer with Whisper."
     },
     {
       "name": "delete_models",

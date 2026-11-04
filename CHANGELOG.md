@@ -36,6 +36,8 @@ version's section as its release notes.
   instead of attachments for many recordings or a large video.
 - The plugin's listing says that it works with the Local Whisper extension or server, and its README
   gives the setup steps for claude.ai and the Claude desktop app.
+- The Claude Desktop extension's description matches the plugin's: audio and video on your own
+  computer, on the GPU or the CPU, as text, SRT subtitles, or JSON.
 - The Claude Code plugin lives in the `plugin` folder, so installing it brings the skill without
   the server's source code.
 - The README's install section is a table with a direct download for each system and app, and for
