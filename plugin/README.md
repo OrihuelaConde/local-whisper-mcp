@@ -25,7 +25,7 @@ To use it in claude.ai or the Claude desktop app, follow these steps:
 1. If your computer doesn't have the [Claude desktop app](https://claude.ai/download), install it
    and sign in.
 2. Download the Local Whisper extension for your system, open the file, and click **Install** in
-   Claude Desktop.
+   Claude Desktop. If your system asks which app to open the file with, choose Claude.
 3. For recordings other than WAV, Ogg Opus, and MP3, such as M4A or video, install
    [ffmpeg](https://ffmpeg.org): `winget install --id Gyan.FFmpeg` on Windows, or
    `brew install ffmpeg` on a Mac.
