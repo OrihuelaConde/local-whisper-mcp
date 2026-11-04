@@ -7,11 +7,14 @@ version's section as its release notes.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-04
+
 ### Added
 
 - `hints` parameter in the `transcribe` tool: names and terms that the audio is likely to contain,
   up to 120 characters, which Whisper reads as a prompt so it spells them as given. The skill tells
-  Claude when to pass them. The measurements are in `poc/HINTS-RESULTS.md`.
+  Claude when to pass them, and to pass them only to a server that lists the parameter. The
+  measurements are in `poc/HINTS-RESULTS.md`.
 - Claude Desktop extension (`.mcpb`) for Linux x64 and arm64, for the beta of Claude Desktop on
   Ubuntu and Debian.
 - The Local Whisper logo and a short demo video at the start of the README, and the logo's icon in
@@ -69,5 +72,6 @@ The first public release. Versions before 1.0.0 were internal test builds.
   `LOCAL_WHISPER_ALLOWED_ROOTS`, `LOCAL_WHISPER_INBOX_DIR`, `LOCAL_WHISPER_MODELS_DIR`,
   `LOCAL_WHISPER_AUTO_DOWNLOAD`, `LOCAL_WHISPER_THREADS`, and `LOCAL_WHISPER_FFMPEG`.
 
-[Unreleased]: https://github.com/OrihuelaConde/local-whisper-mcp/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/OrihuelaConde/local-whisper-mcp/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/OrihuelaConde/local-whisper-mcp/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/OrihuelaConde/local-whisper-mcp/releases/tag/v1.0.0
