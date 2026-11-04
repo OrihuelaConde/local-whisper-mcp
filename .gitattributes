@@ -1,2 +1,3 @@
-# Normalize line endings in the repository; checkouts use the platform default.
-* text=auto
+# Normalize line endings in the repository, and check out LF on every platform. The plugin
+# marketplace refuses line-ending rules without eol=lf, because they change the checked-out bytes.
+* text=auto eol=lf
