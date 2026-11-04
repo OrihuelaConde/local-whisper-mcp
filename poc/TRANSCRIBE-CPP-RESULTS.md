@@ -57,11 +57,10 @@ of the test set. All engines get the same samples, because
 [`tcpp_transcribe.py`](scripts/tcpp_transcribe.py) resamples with the same filter as the server.
 
 The test machine runs Windows 11 with an NVIDIA GeForce RTX 3080 (10 GB, driver 616.92) and an
-Intel Core i7-12700F, the processor that Windows reports. All engines use 8 CPU threads and Vulkan
-on the GPU. Each engine ran on this machine in the same session, and Whisper's transcripts match the
+Intel Core i7-12700F. All engines use 8 CPU threads and Vulkan on the GPU. Each engine ran on this machine in the same session, and Whisper's transcripts match the
 stored Gemma baseline word for word. On 5-second recordings on the CPU, Whisper takes 1.7 to 2.0
-times as long as the figures in GEMMA-RESULTS.md, which name a different processor, so compare the
-CPU figures only within this page.
+times as long as the figures in GEMMA-RESULTS.md, which come from the same machine with a Core
+i9-14900K, so compare the CPU figures only within this page.
 
 ## Accuracy
 
