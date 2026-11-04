@@ -30,8 +30,8 @@ To use it in claude.ai or the Claude desktop app, follow these steps:
    [ffmpeg](https://ffmpeg.org): `winget install --id Gyan.FFmpeg` on Windows, or
    `brew install ffmpeg` on a Mac.
 4. Start a new chat in Claude Desktop and ask Claude to transcribe a file by its path. To attach
-   the file instead, start a claude.ai chat linked to your computer: click **+** in the message
-   box, choose **Devices**, and pick your computer under **Run tasks on**.
+   the file instead, from a browser or the mobile app, start a claude.ai chat linked to your
+   computer: click **+** in the message box, choose **Devices**, and pick your computer.
 
 To use it in Claude Code, register the server as described in the
 [Claude Code guide](https://github.com/OrihuelaConde/local-whisper-mcp#claude-code), and then run
