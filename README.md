@@ -55,17 +55,17 @@ Claude Desktop for Linux is a beta for Ubuntu and Debian.
 To verify a download, compare its SHA-256 hash with the one in `SHA256SUMS.txt`, on the
 [releases page](https://github.com/OrihuelaConde/local-whisper-mcp/releases/latest).
 
-[win-x64-mcpb]: https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.0.0/local-whisper-mcp-1.0.0-win-x64.mcpb
-[win-x64-zip]: https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.0.0/local-whisper-mcp-1.0.0-win-x64.zip
-[osx-arm64-mcpb]: https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.0.0/local-whisper-mcp-1.0.0-osx-arm64.mcpb
-[osx-arm64-tgz]: https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.0.0/local-whisper-mcp-1.0.0-osx-arm64.tar.gz
-[osx-x64-mcpb]: https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.0.0/local-whisper-mcp-1.0.0-osx-x64.mcpb
-[osx-x64-tgz]: https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.0.0/local-whisper-mcp-1.0.0-osx-x64.tar.gz
+[win-x64-mcpb]: https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.1.0/local-whisper-mcp-1.1.0-win-x64.mcpb
+[win-x64-zip]: https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.1.0/local-whisper-mcp-1.1.0-win-x64.zip
+[osx-arm64-mcpb]: https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.1.0/local-whisper-mcp-1.1.0-osx-arm64.mcpb
+[osx-arm64-tgz]: https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.1.0/local-whisper-mcp-1.1.0-osx-arm64.tar.gz
+[osx-x64-mcpb]: https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.1.0/local-whisper-mcp-1.1.0-osx-x64.mcpb
+[osx-x64-tgz]: https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.1.0/local-whisper-mcp-1.1.0-osx-x64.tar.gz
 [linux-x64-mcpb]: https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.1.0/local-whisper-mcp-1.1.0-linux-x64.mcpb
-[linux-x64-tgz]: https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.0.0/local-whisper-mcp-1.0.0-linux-x64.tar.gz
+[linux-x64-tgz]: https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.1.0/local-whisper-mcp-1.1.0-linux-x64.tar.gz
 [linux-arm64-mcpb]: https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.1.0/local-whisper-mcp-1.1.0-linux-arm64.mcpb
-[linux-arm64-tgz]: https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.0.0/local-whisper-mcp-1.0.0-linux-arm64.tar.gz
-[skill-zip]: https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.0.0/local-whisper-skill.zip
+[linux-arm64-tgz]: https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.1.0/local-whisper-mcp-1.1.0-linux-arm64.tar.gz
+[skill-zip]: https://github.com/OrihuelaConde/local-whisper-mcp/releases/download/v1.1.0/local-whisper-skill.zip
 
 ### Claude Desktop
 
