@@ -22,10 +22,14 @@ download is in the [install table](https://github.com/OrihuelaConde/local-whispe
 
 To use it in claude.ai or the Claude desktop app, follow these steps:
 
-1. Install the [Claude desktop app](https://claude.ai/download) on your computer, and sign in.
+1. If your computer doesn't have the [Claude desktop app](https://claude.ai/download), install it
+   and sign in.
 2. Download the Local Whisper extension for your system, open the file, and click **Install** in
    Claude Desktop.
-3. Start a new chat in Claude Desktop and ask Claude to transcribe a file by its path. To attach
+3. For recordings other than WAV, Ogg Opus, and MP3, such as M4A or video, install
+   [ffmpeg](https://ffmpeg.org): `winget install --id Gyan.FFmpeg` on Windows, or
+   `brew install ffmpeg` on a Mac.
+4. Start a new chat in Claude Desktop and ask Claude to transcribe a file by its path. To attach
    the file instead, start a claude.ai chat linked to your computer: click **+** in the message
    box, choose **Devices**, and pick your computer under **Run tasks on**.
 
