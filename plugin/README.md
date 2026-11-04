@@ -17,14 +17,33 @@ The plugin carries one skill and no code. The skill tells Claude the following:
 
 ## Install
 
-The plugin doesn't include the server. Install the Local Whisper MCP server on your computer as
-described in the [installation guide](https://github.com/OrihuelaConde/local-whisper-mcp#install).
+The plugin doesn't include the server, so install Local Whisper on your computer first. Each
+download is in the [install table](https://github.com/OrihuelaConde/local-whisper-mcp#install).
 
-To add the plugin to Claude Code, run the following command in a session:
+To use it in claude.ai or the Claude desktop app, follow these steps:
+
+1. If your computer doesn't have the [Claude desktop app](https://claude.ai/download), install it
+   and sign in.
+2. Download the Local Whisper extension for your system, open the file, and click **Install** in
+   Claude Desktop. If your system asks which app to open the file with, choose Claude.
+3. For recordings other than WAV, Ogg Opus, and MP3, such as M4A or video, install
+   [ffmpeg](https://ffmpeg.org): `winget install --id Gyan.FFmpeg` on Windows, or
+   `brew install ffmpeg` on a Mac.
+4. Start a new chat in Claude Desktop, attach the recording, and ask Claude to transcribe it. From
+   a browser or the mobile app, link the chat to your computer first: click **+** in the message
+   box, choose **Devices**, and pick your computer. For many recordings or a large video, give
+   Claude the files' paths on your computer instead of attaching them.
+
+To use it in Claude Code, register the server as described in the
+[Claude Code guide](https://github.com/OrihuelaConde/local-whisper-mcp#claude-code), and then run
+the following command in a session to add the plugin:
 
 ```text
 /plugin install local-whisper --marketplace OrihuelaConde/claude-plugins
 ```
+
+If you ask for a transcript before the server is reachable, Claude gives you these steps instead of
+sending the recording anywhere else.
 
 ## Use
 

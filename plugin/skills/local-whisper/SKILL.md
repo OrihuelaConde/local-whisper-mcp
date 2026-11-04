@@ -11,8 +11,8 @@ Local Whisper is an MCP server on the user's computer that runs Whisper there. T
 
 Check this session's tools, then follow one path:
 
-- **Linked session**: the Local Whisper tools and the device file tools (`device_commit_files`) are both here. The session runs in the cloud and reaches the computer through the Claude desktop app.
-- **Local session**: the Local Whisper tools are here without device file tools. The server runs on the same computer as this session.
+- **Linked session**: the Local Whisper tools and the device file tools (`device_commit_files`) are both here. This is a Claude chat, on the web, the mobile app, or the desktop app, linked to the user's computer: the session runs in the cloud and reaches the computer through the Claude desktop app.
+- **Local session**: the Local Whisper tools are here without device file tools, as in Claude Code on the user's computer. The server runs on the same computer as this session.
 - **Unreachable**: no Local Whisper tools, even after a search.
 
 ## Linked session
@@ -27,24 +27,38 @@ The attachment lives in this session's cloud container, and the server can only 
 
 The inbox is the only folder the server cleans, so it's the destination for every copy: a copy in Downloads or any other folder stays behind. The path is done when `transcribe` returns text and the copy existed only in the inbox.
 
+A recording that's already on the computer doesn't need to travel through the chat: when the user gives its full path, call `transcribe` with it. When they want to transcribe many recordings or a large video, suggest giving paths instead of attaching the files.
+
 ## Local session
 
 1. Call `status` and note `inbox` and `allowedRoots`.
 2. Find the audio on the computer:
    - Inside the inbox or an allowed root: use its absolute path as it is.
-   - Elsewhere on the computer: copy it into the inbox, which the server cleans after transcribing.
-   - Only in the chat, as an attachment: ask the user for the file's path on their computer.
+   - Elsewhere on the computer: copy it into the inbox, which the server cleans after transcribing. If this session has no tool to copy files, ask the user to move it into the inbox or one of the allowed folders.
+   - Attached to the chat: in Claude Code, an attached file is already on the computer, and the message gives its path. Treat that path like any other file above: use it inside an allowed root, or copy it into the inbox if it's elsewhere, such as a temporary folder.
+   - An attachment with no path on the computer and no tool in this session that can copy it there: the server can't read it. Ask for the file's full path on the computer, and say how to copy it: on Windows, right-click the file and choose **Copy as path**; on a Mac, hold Option, right-click the file, and choose **Copy as Pathname**.
 3. Call `transcribe` with that path.
 
 The path is done when `transcribe` returns text.
 
 ## Unreachable
 
-Transcription stays on the user's computer even when this session could install Whisper or call a speech-to-text service: keeping the audio on the user's machine is the reason they chose Local Whisper. The reply is the steps to connect it, first and short, with at most one sentence on why. All the files are in the latest release, https://github.com/OrihuelaConde/local-whisper-mcp/releases/latest. Pick the steps by where this session runs:
+Transcription stays on the user's computer even when this session could install Whisper or call a speech-to-text service: keeping the audio on the user's machine is the reason they chose Local Whisper. Don't transcribe the audio another way, guess what it says, or suggest cloud services.
 
-- **Claude Code on the user's computer** (the terminal, an IDE, or the Code tab of the Claude desktop app): the server isn't registered. Tell them to download the archive for their system from the latest release, extract it to a folder they keep, run `claude mcp add local-whisper -- PATH_TO_EXECUTABLE` with the full path of `local-whisper-mcp` (`local-whisper-mcp.exe` on Windows), and start a new session.
-- **A chat without device tools** (no `device_commit_files`), such as claude.ai in the browser: the chat isn't running on the user's computer. Tell them to install the Local Whisper extension in the Claude desktop app if they haven't, then start a new chat in claude.ai, click **+** in the message box, choose **Devices**, pick their computer under **Run tasks on**, attach the audio again, and ask. The computer must be on, with the Claude desktop app open.
-- **A chat with device tools but no Local Whisper tools**: the chat runs on the computer, but the server isn't installed there. Tell them to install the `.mcpb` extension for their system from the latest release in the Claude desktop app, then start a new chat on that computer and ask again.
+Many users reach this path right after installing the skill, with a recording waiting, so this reply is their first impression. Open with one sentence on why: Local Whisper runs on their computer, and this chat can't reach it yet. Then give the steps as a short numbered list, in the user's language. End by saying that the first transcription downloads the Whisper model once, about 900 MB, and that you can summarize or work with the transcript after that. Every download is in the install table, https://github.com/OrihuelaConde/local-whisper-mcp#install, which links the right file for each system and app.
+
+Local Whisper reads WAV, Ogg Opus (WhatsApp and Telegram voice notes), and MP3 on its own. When the recording is any other format, such as M4A (iPhone voice memos and many recorder apps), FLAC, or a video, add a step: install ffmpeg, with `winget install --id Gyan.FFmpeg` on Windows or `brew install ffmpeg` on a Mac.
+
+When the user says they already installed the extension, the likely cause is that this chat started before the install and can't see it: tell them to start a new chat that can reach the computer, in the Claude desktop app or in claude.ai linked to the computer with **+** > **Devices**, and ask again there. Give the steps only if that new chat doesn't find it either.
+
+Pick the steps by where this session runs:
+
+- **Claude Code on the user's computer** (the terminal, an IDE, or the Code tab of the Claude desktop app): the server isn't registered. Tell them to download the archive for their system from the install table, extract it to a folder they keep, run `claude mcp add local-whisper -- PATH_TO_EXECUTABLE` with the full path of `local-whisper-mcp` (`local-whisper-mcp.exe` on Windows), and start a new session.
+- **A chat without device tools** (no `device_commit_files`): a Claude chat that isn't linked to a computer, on the web, the mobile app, or the desktop app. These look the same from here, so write the steps for the user to pick their case, instead of guessing it:
+  1. If their computer doesn't have the Claude desktop app, install it from https://claude.ai/download and sign in with this same account.
+  2. Download the Local Whisper extension for their system from the install table, open the file (if the system asks which app to open it with, choose Claude), and click **Install** in Claude Desktop. If it's already installed, check that it's turned on in **Settings > Extensions**.
+  3. Start a new chat, attach the recording, and ask again. The chat can be in the Claude desktop app, or in claude.ai in a browser or the mobile app linked to the computer: click **+** in the message box, choose **Devices**, and pick the computer. A linked chat also works for a recording that's only on their phone: the copy goes to the computer, and the server deletes it after transcribing. The computer must be on, with the Claude desktop app open.
+- **A chat with device tools but no Local Whisper tools**: the chat reaches the computer, but the server isn't installed there. Tell them to download the extension for their system from the install table, open it in the Claude desktop app on that computer, and click **Install**, or turn it on in **Settings > Extensions** if it's already there. Then start a new chat, link it to the computer again with **+** > **Devices**, attach the file, and ask.
 
 The path is done when the user has the steps for their case.
 
@@ -52,6 +66,9 @@ The path is done when the user has the steps for their case.
 
 - `language`: omit it to detect the language; pass a code such as `es` or `en` when the user states the language.
 - `format`: `txt` by default, `srt` for subtitles, and `json` for segments with start and end times in seconds.
+- `hints`: pass it only when `transcribe` lists a `hints` parameter; Local Whisper has it from version 1.1.0. Names that are likely to be said in this audio, spelled the way the transcript should write them, such as people, places, companies, or products that the user, the conversation, or the file name mentioned. Up to about eight, the ones most likely to be misspelled first, within 120 characters. Omit it when you don't know any: names that the audio doesn't contain can make a short recording slightly worse. Don't pass instructions or sample sentences; Whisper reads the hints as text that came before the audio.
+- The user gave names but `transcribe` has no `hints` parameter: transcribe without them, and after the transcript say once that Local Whisper 1.1.0 or later can take those names to spell them right, from the install table, https://github.com/OrihuelaConde/local-whisper-mcp#install.
 - `vad` and `model`: keep the defaults unless the user asks otherwise.
+- A long transcript that repeats one phrase many times: call `transcribe` again without `hints`.
 - A reply that the model is still downloading comes only on first use: tell the user, wait about a minute, and call `transcribe` again. `status` shows the download's progress.
 - A reply that the file is outside the allowed folders means: copy it into the inbox and call again.

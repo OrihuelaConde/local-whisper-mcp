@@ -7,10 +7,18 @@ version's section as its release notes.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-04
+
 ### Added
 
+- `hints` parameter in the `transcribe` tool: names and terms that the audio is likely to contain,
+  up to 120 characters, which Whisper reads as a prompt so it spells them as given. The skill tells
+  Claude when to pass them, and to pass them only to a server that lists the parameter. The
+  measurements are in `poc/HINTS-RESULTS.md`.
 - Claude Desktop extension (`.mcpb`) for Linux x64 and arm64, for the beta of Claude Desktop on
-  Ubuntu and Debian.
+  Ubuntu and Debian. Linux needs the OpenMP runtime (`libgomp1`), which the README now lists.
+- When Whisper's native library doesn't load, `transcribe` returns the loader's error and how to
+  fix it, such as installing `libgomp1` on Linux, instead of a generic error.
 - The Local Whisper logo and a short demo video at the start of the README, and the logo's icon in
   the Claude Desktop extension, the Claude Code plugin's listing, and the MCP Registry entry.
 - A "Design notes" section in the README that links the measurements behind the design: the
@@ -19,6 +27,19 @@ version's section as its release notes.
 
 ### Changed
 
+- When Local Whisper isn't reachable from a chat, the skill gives a short numbered setup that works
+  from claude.ai in a browser, the mobile app, and the Claude desktop app: install the desktop app,
+  install the extension from the README's install table, and attach the recording in a new chat, in
+  the desktop app or in a claude.ai chat linked to the computer, which also works from the mobile
+  app. It adds the ffmpeg step only for formats that need it, links the install table instead of
+  the releases page, and says that the first transcription downloads the model once.
+- When the server can't read a chat attachment, the skill asks for the file's path on the computer
+  and says how to copy it on Windows and macOS. In a chat linked to the computer, it suggests paths
+  instead of attachments for many recordings or a large video.
+- The plugin's listing says that it works with the Local Whisper extension or server, and its README
+  gives the setup steps for claude.ai and the Claude desktop app.
+- The Claude Desktop extension's description matches the plugin's: audio and video on your own
+  computer, on the GPU or the CPU, as text, SRT subtitles, or JSON.
 - The Claude Code plugin lives in the `plugin` folder, so installing it brings the skill without
   the server's source code.
 - The README's install section is a table with a direct download for each system and app, and for
@@ -66,5 +87,6 @@ The first public release. Versions before 1.0.0 were internal test builds.
   `LOCAL_WHISPER_ALLOWED_ROOTS`, `LOCAL_WHISPER_INBOX_DIR`, `LOCAL_WHISPER_MODELS_DIR`,
   `LOCAL_WHISPER_AUTO_DOWNLOAD`, `LOCAL_WHISPER_THREADS`, and `LOCAL_WHISPER_FFMPEG`.
 
-[Unreleased]: https://github.com/OrihuelaConde/local-whisper-mcp/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/OrihuelaConde/local-whisper-mcp/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/OrihuelaConde/local-whisper-mcp/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/OrihuelaConde/local-whisper-mcp/releases/tag/v1.0.0

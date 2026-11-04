@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Transcribes a folder of recordings through the server's own code (decoding, VAD, Whisper) with
+    an optional prompt per recording, to measure what hints do. poc/scripts/hints_eval.py runs it.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>hints-eval</AssemblyName>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\LocalWhisperMcp\LocalWhisperMcp.csproj" />
+  </ItemGroup>
+
+</Project>
