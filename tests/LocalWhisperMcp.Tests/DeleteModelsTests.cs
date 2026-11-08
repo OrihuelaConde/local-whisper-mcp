@@ -52,7 +52,23 @@ public sealed class DeleteModelsTests : IDisposable
         CreateModel(ModelCatalog.VadModelFileName, 885_098);
         using var host = CreateHost(out _);
 
-        Assert.Equal([new InstalledModel("base", 148)], host.GetStatus().InstalledModels);
+        Assert.Equal([new InstalledModel("base", 148, "whisper.cpp")], host.GetStatus().InstalledModels);
+    }
+
+    [Fact]
+    public async Task Catalog_gguf_files_are_listed_and_deleted_and_other_gguf_files_are_not()
+    {
+        CreateModel("parakeet-ultra-Q8_0.gguf", 2_000_000);
+        CreateModel("some-other-Q8_0.gguf", 1_000_000);
+        using var host = CreateHost(out var store);
+
+        Assert.Equal([new InstalledModel("parakeet-ultra", 2, "transcribe.cpp")], host.GetStatus().InstalledModels);
+
+        var report = await TranscriptionTools.DeleteModelsAsync(host, ["parakeet-ultra"]);
+
+        Assert.Contains("- parakeet-ultra (2 MB)", report);
+        Assert.Empty(store.GetInstalledModels());
+        Assert.True(File.Exists(Path.Combine(directory, "some-other-Q8_0.gguf")));
     }
 
     public void Dispose() => Directory.Delete(directory, recursive: true);

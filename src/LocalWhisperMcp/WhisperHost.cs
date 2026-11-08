@@ -2,15 +2,19 @@ using Microsoft.Extensions.Logging;
 
 namespace LocalWhisperMcp;
 
-/// <summary>Loads the Whisper model on demand and releases it after a period without calls.</summary>
-/// <remarks>Releasing the model returns its GPU memory to other processes while the server is idle.</remarks>
+/// <summary>Loads one speech model on demand and releases it after a period without calls.</summary>
+/// <remarks>
+/// Releasing the model returns its GPU memory to other processes while the server is idle. A call
+/// for another model, on either engine, releases the loaded one first, so only one model holds
+/// memory at a time.
+/// </remarks>
 internal sealed class WhisperHost : IDisposable
 {
     private readonly SemaphoreSlim gate = new(1, 1);
     private readonly ILogger<WhisperHost> logger;
     private readonly Timer idleTimer;
     private readonly IDisposable logForwarding;
-    private Transcriber? transcriber;
+    private ISpeechModel? model;
     private DateTimeOffset lastUse = DateTimeOffset.UtcNow;
 
     /// <summary>Initializes a new instance of the <see cref="WhisperHost"/> class.</summary>
@@ -34,46 +38,45 @@ internal sealed class WhisperHost : IDisposable
     /// <summary>Gets the model store.</summary>
     public ModelStore Models { get; }
 
+    /// <summary>Gets the device that runs the loaded model, or <see langword="null"/> if no model is loaded.</summary>
+    public string? Device => model?.Device;
+
     /// <summary>Transcribes the samples with the requested model, loading it first if needed.</summary>
-    /// <param name="modelPath">The path to the ggml model file.</param>
+    /// <param name="modelPath">The path to the model file.</param>
+    /// <param name="engine">The engine that runs the model.</param>
     /// <param name="samples">The 16 kHz mono samples.</param>
-    /// <param name="language">A language code, or <c>auto</c>.</param>
-    /// <param name="vadModelPath">The path to the VAD model, or <see langword="null"/> to skip VAD.</param>
-    /// <param name="prompt">Text that Whisper reads as if it came right before the audio, or <see langword="null"/> for none.</param>
-    /// <param name="carryPrompt">Whether every 30-second window reads the prompt, not only the first ones.</param>
-    /// <param name="progress">Receives the percentage of the speech transcribed so far.</param>
+    /// <param name="request">The language and the options.</param>
+    /// <param name="progress">Receives the percentage transcribed so far.</param>
     /// <param name="cancellationToken">The token to cancel the transcription.</param>
     /// <returns>The transcription.</returns>
-    /// <exception cref="ArgumentException">Whisper doesn't support the language.</exception>
+    /// <exception cref="ArgumentException">The model doesn't support the language.</exception>
     public async Task<TranscriptionResult> TranscribeAsync(
         string modelPath,
+        SpeechEngine engine,
         float[] samples,
-        string language,
-        string? vadModelPath,
-        string? prompt,
-        bool carryPrompt,
+        SpeechRequest request,
         IProgress<int>? progress,
         CancellationToken cancellationToken)
     {
         await gate.WaitAsync(cancellationToken);
         try
         {
-            if (transcriber?.ModelPath != modelPath)
+            if (model?.ModelPath != modelPath)
             {
-                transcriber?.Dispose();
-                transcriber = null;
+                model?.Dispose();
+                model = null;
                 var started = DateTimeOffset.UtcNow;
-                transcriber = new Transcriber(modelPath, Settings.Threads);
-                logger.LogInformation("Loaded {Model} with the {Runtime} runtime in {Seconds:F2} s.", Path.GetFileName(modelPath), NativeRuntime.Loaded, (DateTimeOffset.UtcNow - started).TotalSeconds);
+                model = SpeechModelFactory.Create(engine, modelPath, Settings, logger);
+                // whisper.cpp names its GPU only when it first transcribes, so its runtime stands in for the device here.
+                logger.LogInformation(
+                    "Loaded {Model} with {Engine} on {Device} in {Seconds:F2} s.",
+                    Path.GetFileName(modelPath),
+                    ModelCatalog.GetEngineName(engine),
+                    engine == SpeechEngine.Whisper ? $"the {NativeRuntime.Loaded} runtime" : model.Device,
+                    (DateTimeOffset.UtcNow - started).TotalSeconds);
             }
 
-            // The language list comes from the native library, which is loaded by now.
-            if (!Transcriber.IsSupportedLanguage(language))
-            {
-                throw new ArgumentException($"Whisper doesn't support the language '{language}'.", nameof(language));
-            }
-
-            return await transcriber.TranscribeAsync(samples, language, vadModelPath, prompt, carryPrompt, progress, cancellationToken);
+            return await model.TranscribeAsync(samples, request, progress, cancellationToken);
         }
         finally
         {
@@ -91,10 +94,10 @@ internal sealed class WhisperHost : IDisposable
         await gate.WaitAsync();
         try
         {
-            if (transcriber is not null && fileNames.Contains(Path.GetFileName(transcriber.ModelPath), StringComparer.OrdinalIgnoreCase))
+            if (model is not null && fileNames.Contains(Path.GetFileName(model.ModelPath), StringComparer.OrdinalIgnoreCase))
             {
-                transcriber.Dispose();
-                transcriber = null;
+                model.Dispose();
+                model = null;
                 logger.LogInformation("Released the model to delete it.");
             }
 
@@ -110,7 +113,7 @@ internal sealed class WhisperHost : IDisposable
     /// <returns>The current status.</returns>
     public HostStatus GetStatus()
     {
-        var loaded = transcriber;
+        var loaded = model;
         double? secondsUntilRelease = loaded is null
             ? null
             : Math.Round(Math.Max(0, (Settings.IdleTimeout - (DateTimeOffset.UtcNow - lastUse)).TotalSeconds));
@@ -118,7 +121,7 @@ internal sealed class WhisperHost : IDisposable
 
         // Clients read this field to tell the user whether the GPU is in use, so before the first
         // transcription it says what will happen instead of leaving it empty.
-        var device = NativeRuntime.Device ?? (runtimes.Count == 0
+        var device = loaded?.Device ?? NativeRuntime.Device ?? (runtimes.Count == 0
             ? "None: no native runtime is installed next to the server."
             : $"Not chosen yet: the first transcription tries the {string.Join(", then the ", runtimes)} runtime.");
         return new HostStatus(
@@ -126,6 +129,7 @@ internal sealed class WhisperHost : IDisposable
             device,
             runtimes,
             loaded is null ? null : ModelCatalog.GetModelName(Path.GetFileName(loaded.ModelPath)),
+            loaded is null ? null : ModelCatalog.GetEngineName(loaded.Engine),
             secondsUntilRelease,
             Settings.DefaultModel,
             Settings.DefaultLanguage,
@@ -142,14 +146,14 @@ internal sealed class WhisperHost : IDisposable
     public void Dispose()
     {
         idleTimer.Dispose();
-        transcriber?.Dispose();
+        model?.Dispose();
         logForwarding.Dispose();
         gate.Dispose();
     }
 
     private async Task ReleaseIfIdleAsync()
     {
-        if (transcriber is null || DateTimeOffset.UtcNow - lastUse < Settings.IdleTimeout)
+        if (model is null || DateTimeOffset.UtcNow - lastUse < Settings.IdleTimeout)
         {
             return;
         }
@@ -157,10 +161,10 @@ internal sealed class WhisperHost : IDisposable
         await gate.WaitAsync();
         try
         {
-            if (transcriber is not null && DateTimeOffset.UtcNow - lastUse >= Settings.IdleTimeout)
+            if (model is not null && DateTimeOffset.UtcNow - lastUse >= Settings.IdleTimeout)
             {
-                transcriber.Dispose();
-                transcriber = null;
+                model.Dispose();
+                model = null;
                 logger.LogInformation("Released the model after {Minutes:F1} idle minutes.", Settings.IdleTimeout.TotalMinutes);
             }
         }
@@ -180,10 +184,11 @@ internal sealed class WhisperHost : IDisposable
 /// <param name="Device">The device that runs the model, such as a GPU name or <c>CPU</c>, or the runtimes the server will try before the first transcription.</param>
 /// <param name="AvailableRuntimes">The installed native runtimes in the order the server tries them; the first one that loads runs the model.</param>
 /// <param name="LoadedModel">The name of the loaded model, or <see langword="null"/> if no model is loaded.</param>
+/// <param name="LoadedEngine">The engine of the loaded model, <c>whisper.cpp</c> or <c>transcribe.cpp</c>, or <see langword="null"/> if no model is loaded.</param>
 /// <param name="SecondsUntilRelease">The seconds left before the idle model is released, or <see langword="null"/> if no model is loaded.</param>
 /// <param name="DefaultModel">The model that calls use when they don't name one.</param>
 /// <param name="DefaultLanguage">The language that calls use when they don't name one.</param>
-/// <param name="InstalledModels">The Whisper models in the models directory, with their sizes.</param>
+/// <param name="InstalledModels">The speech models in the models directory, with their sizes and engines.</param>
 /// <param name="Downloads">The model downloads in progress.</param>
 /// <param name="ModelsDirectory">The directory that holds the models.</param>
 /// <param name="Inbox">The directory to copy audio into when it isn't on this computer yet; the server deletes each file after transcribing it.</param>
@@ -195,6 +200,7 @@ internal sealed record HostStatus(
     string Device,
     IReadOnlyList<string> AvailableRuntimes,
     string? LoadedModel,
+    string? LoadedEngine,
     double? SecondsUntilRelease,
     string DefaultModel,
     string DefaultLanguage,

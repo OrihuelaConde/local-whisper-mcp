@@ -14,7 +14,9 @@ namespace HintsEval;
 /// PROMPTS_TSV has one "file name, tab, prompt" line per recording; recordings it doesn't list
 /// get no prompt. The VAD decision, the VAD model, the thread count, and the native runtime are the
 /// server's. Each transcript goes to OUT_DIR/FILE_NAME.txt in the txt format, and the program
-/// prints the timings as one JSON object.
+/// prints the timings as one JSON object. A Parakeet model file, such as parakeet-ultra-Q8_0.gguf,
+/// runs on transcribe.cpp the way the server runs it: without VAD and without prompts, and its loop
+/// repairs appear as warnings on standard error.
 /// </remarks>
 internal static class HintsEvalProgram
 {
@@ -69,6 +71,12 @@ internal static class HintsEvalProgram
             .SetMinimumLevel(LogLevel.Warning)
             .AddConsole(console => console.LogToStandardErrorThreshold = LogLevel.Trace));
         using var logs = NativeRuntime.ForwardLogs(loggerFactory.CreateLogger("whisper.cpp"));
+        var engine = ModelCatalog.GetModelName(Path.GetFileName(modelPath)) is { } modelName ? ModelCatalog.GetEngine(modelName) : SpeechEngine.Whisper;
+        if (engine != SpeechEngine.Whisper)
+        {
+            vad = "off";
+        }
+
         var vadPath = Path.Combine(settings.ModelsDirectory, ModelCatalog.VadModelFileName);
         if (vad != "off" && !File.Exists(vadPath))
         {
@@ -78,13 +86,8 @@ internal static class HintsEvalProgram
 
         Directory.CreateDirectory(outDir);
         var load = Stopwatch.StartNew();
-        using var transcriber = new Transcriber(modelPath, settings.Threads);
+        using var model = SpeechModelFactory.Create(engine, modelPath, settings, loggerFactory.CreateLogger("model"));
         load.Stop();
-        if (!Transcriber.IsSupportedLanguage(language))
-        {
-            Console.Error.WriteLine($"Whisper doesn't support the language '{language}'.");
-            return 2;
-        }
 
         var files = Directory.GetFiles(audioDir).Where(file => AudioDecoder.DetectFormat(file) != AudioFormat.Other).Order(StringComparer.Ordinal).ToList();
         double audioSeconds = 0, speechSeconds = 0, transcribeSeconds = 0;
@@ -99,10 +102,20 @@ internal static class HintsEvalProgram
                 "off" => false,
                 _ => AudioQuality.MeasureSpreadDb(samples) >= AudioQuality.CleanSpreadDb,
             };
-            var prompt = prompts.GetValueOrDefault(name) ?? sharedPrompt;
+            var prompt = engine == SpeechEngine.Whisper ? prompts.GetValueOrDefault(name) ?? sharedPrompt : null;
 
             var watch = Stopwatch.StartNew();
-            var result = await transcriber.TranscribeAsync(samples, language, useVad ? vadPath : null, prompt, carry, null, CancellationToken.None);
+            TranscriptionResult result;
+            try
+            {
+                result = await model.TranscribeAsync(samples, new SpeechRequest(language, useVad ? vadPath : null, prompt, carry), null, CancellationToken.None);
+            }
+            catch (ArgumentException exception) when (exception.ParamName == "language")
+            {
+                Console.Error.WriteLine(exception.Message);
+                return 2;
+            }
+
             watch.Stop();
 
             var text = TranscriptFormatter.Format(result, "txt");
@@ -127,7 +140,8 @@ internal static class HintsEvalProgram
             ["transcribeSeconds"] = Math.Round(transcribeSeconds, 2),
             ["secondsPerAudioMinute"] = audioSeconds > 0 ? Math.Round(transcribeSeconds / audioSeconds * 60, 2) : 0,
             ["words"] = words,
-            ["device"] = NativeRuntime.Device,
+            ["device"] = model.Device,
+            ["engine"] = ModelCatalog.GetEngineName(engine),
         };
         Console.WriteLine(JsonSerializer.Serialize(timings));
         return 0;

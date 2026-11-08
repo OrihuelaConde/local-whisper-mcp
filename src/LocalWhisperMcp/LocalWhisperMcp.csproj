@@ -6,6 +6,7 @@
     <RootNamespace>LocalWhisperMcp</RootNamespace>
     <Version>1.1.0</Version>
     <PublishAot>true</PublishAot>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 
@@ -44,6 +45,43 @@
       <_OtherWhisperRuntimeFile Include="@(None)" Condition="'%(None.TargetPath)' == 'ggml-metal.metal' and !$(RuntimeIdentifier.StartsWith('osx-'))" />
       <None Remove="@(_OtherWhisperRuntimeFile)" />
     </ItemGroup>
+  </Target>
+
+  <!--
+    transcribe.cpp, which runs Parakeet models, has no NuGet package. Its Python wheel ships the
+    native library and its backend modules as built by its authors, so the build downloads that
+    wheel once, checks it against the SHA-256 that PyPI lists, and copies its DLLs to
+    runtimes/transcribe/<rid>/. The server checks the version at run time, so a new version means
+    changing these properties and Native.SupportedVersion together. Other RIDs build without it,
+    and a Parakeet model there reports that this build doesn't include it.
+  -->
+  <PropertyGroup>
+    <TranscribeCppVersion>0.4.1</TranscribeCppVersion>
+    <TranscribeCppRid Condition="'$(RuntimeIdentifier)' == 'win-x64' or ('$(RuntimeIdentifier)' == '' and $([MSBuild]::IsOSPlatform('Windows')) and '$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)' == 'X64')">win-x64</TranscribeCppRid>
+    <TranscribeCppWheelUrl Condition="'$(TranscribeCppRid)' == 'win-x64'">https://files.pythonhosted.org/packages/b3/d9/41cbb7195f0fbcf3fea8675da8e597b3b2fc5b553a754120823c62d2f54a/transcribe_cpp_native-0.4.1-py3-none-win_amd64.whl</TranscribeCppWheelUrl>
+    <TranscribeCppWheelSha256 Condition="'$(TranscribeCppRid)' == 'win-x64'">ed0df2783c70c08eca406cbab5b79e2f0da3cac575cbc562b402b953fff508df</TranscribeCppWheelSha256>
+    <TranscribeCppCache>$(MSBuildProjectDirectory)\$(BaseIntermediateOutputPath)transcribe-cpp\$(TranscribeCppVersion)\$(TranscribeCppRid)\</TranscribeCppCache>
+  </PropertyGroup>
+
+  <Target Name="AddTranscribeCppRuntime" BeforeTargets="AssignTargetPaths" AfterTargets="KeepWhisperRuntimesOfTargetPlatform" Condition="'$(TranscribeCppRid)' != ''">
+    <PropertyGroup>
+      <_TranscribeCppWheel>$(TranscribeCppCache)$([System.IO.Path]::GetFileName('$(TranscribeCppWheelUrl)'))</_TranscribeCppWheel>
+      <_TranscribeCppExtracted>$(TranscribeCppCache)extracted\</_TranscribeCppExtracted>
+    </PropertyGroup>
+
+    <DownloadFile SourceUrl="$(TranscribeCppWheelUrl)" DestinationFolder="$(TranscribeCppCache)" Condition="!Exists('$(_TranscribeCppWheel)')" Retries="3" />
+    <GetFileHash Files="$(_TranscribeCppWheel)" Algorithm="SHA256">
+      <Output TaskParameter="Hash" PropertyName="_TranscribeCppWheelHash" />
+    </GetFileHash>
+    <Delete Files="$(_TranscribeCppWheel)" Condition="'$(_TranscribeCppWheelHash.ToLowerInvariant())' != '$(TranscribeCppWheelSha256)'" />
+    <Error Condition="'$(_TranscribeCppWheelHash.ToLowerInvariant())' != '$(TranscribeCppWheelSha256)'" Text="The transcribe.cpp wheel from $(TranscribeCppWheelUrl) has SHA-256 $(_TranscribeCppWheelHash), not $(TranscribeCppWheelSha256). The download is deleted; build again to retry." />
+    <Unzip SourceFiles="$(_TranscribeCppWheel)" DestinationFolder="$(_TranscribeCppExtracted)" Condition="!Exists('$(_TranscribeCppExtracted)transcribe_cpp_native\_native\transcribe.dll')" />
+
+    <ItemGroup>
+      <_TranscribeCppFile Include="$(_TranscribeCppExtracted)transcribe_cpp_native\_native\*.dll" />
+      <None Include="@(_TranscribeCppFile)" Link="runtimes/transcribe/$(TranscribeCppRid)/%(Filename)%(Extension)" TargetPath="runtimes/transcribe/$(TranscribeCppRid)/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Visible="false" />
+    </ItemGroup>
+    <Error Condition="'@(_TranscribeCppFile)' == ''" Text="The transcribe.cpp wheel in $(TranscribeCppCache) has no DLLs under transcribe_cpp_native/_native/." />
   </Target>
 
 </Project>

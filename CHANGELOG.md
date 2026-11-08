@@ -7,6 +7,27 @@ version's section as its release notes.
 
 ## [Unreleased]
 
+### Added
+
+- Parakeet as a second engine, on Windows x64: `model: "parakeet-ultra"` in `transcribe`, or
+  `LOCAL_WHISPER_MODEL=parakeet-ultra` to make it the default, transcribes with Moondream's
+  Parakeet-ultra through transcribe.cpp. On the proof-of-concept machine it was 3 to 6 times faster
+  than Whisper on a GPU and 11 times faster than Whisper `small` on a CPU, with fewer errors on
+  long and noisy recordings. It covers 25 European languages and ignores `hints` and `vad`. The
+  server downloads its 740 MB model on first use, with the same SHA-256 check as Whisper models.
+  Whisper stays the default. The measurements are in `poc/TRANSCRIBE-CPP-RESULTS.md` on the
+  `poc/transcribe-cpp-evaluation` branch.
+- A guard against Parakeet's repetition loops: a stretch where the decoder gets stuck is
+  transcribed again in two parts, and the log records each repair.
+- `status` lists the engine of each installed model and of the loaded one.
+
+### Changed
+
+- The build downloads transcribe.cpp's Windows x64 libraries from its pinned PyPI wheel, checks
+  the wheel's SHA-256, and ships them in `runtimes/transcribe/win-x64/`.
+- The skill tells Claude when `parakeet-ultra` fits: no GPU, long or noisy audio, a European
+  language, and no names to spell.
+
 ## [1.1.0] - 2026-11-04
 
 ### Added

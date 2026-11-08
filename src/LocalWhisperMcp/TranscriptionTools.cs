@@ -28,7 +28,7 @@ internal sealed class TranscriptionTools
     /// <returns>The transcript in the requested format.</returns>
     [McpServerTool(Name = "transcribe", Title = "Transcribe audio", ReadOnly = true, Idempotent = true, OpenWorld = false)]
     [Description(
-        "Transcribes an audio or video file on this computer with Whisper. The audio never leaves the computer. " +
+        "Transcribes an audio or video file on this computer with Whisper, or with Parakeet when the model is parakeet-ultra. The audio never leaves the computer. " +
         "Reads WAV, Ogg Opus (WhatsApp and Telegram voice notes), and MP3; other formats, such as M4A, need ffmpeg. " +
         "The file must be in the inbox folder or in one of the allowed folders that the status tool lists. " +
         "To transcribe a file that isn't on this computer yet, such as a chat attachment, copy it into the inbox: " +
@@ -38,11 +38,11 @@ internal sealed class TranscriptionTools
         ILogger<TranscriptionTools> logger,
         IProgress<ProgressNotificationValue> progress,
         [Description("Absolute path to the audio file.")] string path,
-        [Description("Whisper model, such as large-v3-turbo-q8_0 or base. Omit it to use the server default, which suits almost every case.")] string? model = null,
+        [Description("Speech model. Omit it to use the server default, which suits almost every case. Whisper models, such as large-v3-turbo-q8_0 or base, cover about 100 languages and read hints. parakeet-ultra is several times faster, above all without a GPU, and makes fewer errors on long or noisy recordings, but it covers only 25 European languages and ignores hints; pass it when the user asks for it or for speed on a computer without a GPU.")] string? model = null,
         [Description("Language of the audio as a code such as en or es, or auto to detect it. Omit it to use the server default.")] string? language = null,
         [Description("Output: txt for plain text, srt for subtitles, or json for segments with start and end times in seconds.")] string format = "txt",
-        [Description("Voice activity detection, which skips silence and noise. Omit it: the server turns it on for clean recordings, where it keeps timestamps exact, and off when background noise could hide quiet speech from it. Pass false if speech goes missing, or true to force it.")] bool? vad = null,
-        [Description("Names and terms that are likely to be said in this audio, spelled the way the transcript should write them: people, places, companies, products, or jargon. Whisper uses them as a spelling guide. Pass only names that the user, the conversation, or the file name already gave, up to 120 characters in all (about eight names), the ones most likely to be misspelled first. Omit it when no names are known: a list of names that the audio doesn't contain can make short recordings slightly worse.")] string[]? hints = null,
+        [Description("Voice activity detection, which skips silence and noise, for Whisper models. Omit it: the server turns it on for clean recordings, where it keeps timestamps exact, and off when background noise could hide quiet speech from it. Pass false if speech goes missing, or true to force it. Parakeet models find the speech themselves and ignore it.")] bool? vad = null,
+        [Description("Names and terms that are likely to be said in this audio, spelled the way the transcript should write them: people, places, companies, products, or jargon. Whisper uses them as a spelling guide; Parakeet models ignore them. Pass only names that the user, the conversation, or the file name already gave, up to 120 characters in all (about eight names), the ones most likely to be misspelled first. Omit it when no names are known: a list of names that the audio doesn't contain can make short recordings slightly worse.")] string[]? hints = null,
         CancellationToken cancellationToken = default)
     {
         var settings = host.Settings;
@@ -76,6 +76,21 @@ internal sealed class TranscriptionTools
             throw new McpException($"Invalid model name '{modelName}'.");
         }
 
+        var engine = ModelCatalog.GetEngine(modelName);
+        if (engine == SpeechEngine.TranscribeCpp && !TranscribeCpp.TranscribeCppLibrary.IsInstalled)
+        {
+            // Checked before the download, which would fetch 740 MB that this build can't use.
+            throw new McpException(
+                $"This build of Local Whisper can't run {modelName} on {TranscribeCpp.TranscribeCppLibrary.RuntimeIdentifier}: it includes transcribe.cpp only for Windows x64. " +
+                $"Use a Whisper model, such as {ServerSettings.DefaultModelName}.");
+        }
+
+        if (PromptFor(engine, prompt) is null && prompt is not null)
+        {
+            logger.LogInformation("{Model} takes no prompt, so the {Characters} characters of hints are ignored.", modelName, prompt.Length);
+            prompt = null;
+        }
+
         // Decoding first reports a file that can't be read before any model download starts.
         float[] samples;
         try
@@ -89,27 +104,37 @@ internal sealed class TranscriptionTools
 
         var modelPath = await EnsureModelAsync(host, modelName, progress, DownloadWait, cancellationToken);
 
-        var useVad = vad ?? true;
-        if (vad is null)
+        // Parakeet models cut the audio at pauses themselves, so they need neither the VAD model nor the noise measurement.
+        string? vadPath = null;
+        if (engine == SpeechEngine.Whisper)
         {
-            var spread = AudioQuality.MeasureSpreadDb(samples);
-            useVad = spread >= AudioQuality.CleanSpreadDb;
-            logger.LogInformation("The level spread is {Spread:F1} dB, so VAD is {State}.", spread, useVad ? "on" : "off");
-        }
+            var useVad = vad ?? true;
+            if (vad is null)
+            {
+                var spread = AudioQuality.MeasureSpreadDb(samples);
+                useVad = spread >= AudioQuality.CleanSpreadDb;
+                logger.LogInformation("The level spread is {Spread:F1} dB, so VAD is {State}.", spread, useVad ? "on" : "off");
+            }
 
-        var vadPath = useVad ? await TryEnsureVadModelAsync(host, logger, cancellationToken) : null;
+            vadPath = useVad ? await TryEnsureVadModelAsync(host, logger, cancellationToken) : null;
+        }
+        else if (vad is not null)
+        {
+            logger.LogInformation("{Model} finds the speech itself, so vad={Vad} is ignored.", modelName, vad);
+        }
 
         var stopwatch = Stopwatch.StartNew();
         try
         {
-            var result = await host.TranscribeAsync(modelPath, samples, language, vadPath, prompt, carryPrompt: true, new PercentProgress(progress), cancellationToken);
+            var request = new SpeechRequest(language, vadPath, prompt, CarryPrompt: true);
+            var result = await host.TranscribeAsync(modelPath, engine, samples, request, new PercentProgress(progress), cancellationToken);
             logger.LogInformation(
                 "Transcribed {Seconds:F1} s of {Extension} audio ({Speech:F1} s of speech) with {Model} on {Device} in {Elapsed:F2} s, with {Hints} characters of hints.",
                 result.Duration.TotalSeconds,
                 Path.GetExtension(audioPath).ToLowerInvariant(),
                 result.Speech.Sum(s => (s.End - s.Start).TotalSeconds),
                 modelName,
-                NativeRuntime.Device,
+                host.Device,
                 stopwatch.Elapsed.TotalSeconds,
                 prompt?.Length ?? 0);
             var transcript = TranscriptFormatter.Format(result, format);
@@ -121,7 +146,14 @@ internal sealed class TranscriptionTools
         }
         catch (ArgumentException exception) when (exception.ParamName == "language")
         {
-            throw new McpException($"Whisper doesn't support the language '{language}'. Use a code such as en or es, or auto.", exception);
+            // The message starts with the model's own reason, which the ArgumentException suffix would spoil.
+            throw new McpException(exception.Message[..(exception.Message.LastIndexOf(" (Parameter", StringComparison.Ordinal) is var end and >= 0 ? end : exception.Message.Length)], exception);
+        }
+        catch (TranscribeCpp.TranscribeCppException exception)
+        {
+            var detail = exception.Message.TrimEnd();
+            detail = detail.EndsWith('.') ? detail : detail + ".";
+            throw new McpException($"{modelName} couldn't run on this computer. {detail} To transcribe anyway, use a Whisper model, such as {ServerSettings.DefaultModelName}, or reinstall Local Whisper from the latest release.", exception);
         }
         catch (Exception exception) when (exception.Message.StartsWith("Failed to load native whisper library", StringComparison.Ordinal))
         {
@@ -141,8 +173,8 @@ internal sealed class TranscriptionTools
     /// <returns>The current status.</returns>
     [McpServerTool(Name = "status", Title = "Transcription status", ReadOnly = true, Idempotent = true, OpenWorld = false)]
     [Description(
-        "Reports the device that runs Whisper (a GPU or the CPU), " +
-        "the loaded, default, and installed models, model downloads in progress, " +
+        "Reports the device that runs the model (a GPU or the CPU), " +
+        "the loaded, default, and installed models with the engine of each, model downloads in progress, " +
         "the inbox folder for audio that isn't on this computer yet, and the allowed folders that transcribe may read audio from.")]
     public static HostStatus GetStatus(WhisperHost host) => host.GetStatus();
 
@@ -152,12 +184,12 @@ internal sealed class TranscriptionTools
     /// <returns>What was deleted and how much space it freed.</returns>
     [McpServerTool(Name = "delete_models", Title = "Delete downloaded models", Destructive = true, Idempotent = true, OpenWorld = false)]
     [Description(
-        "Deletes downloaded Whisper models to free disk space; status lists them with their sizes. " +
+        "Deletes downloaded speech models to free disk space; status lists them with their sizes. " +
         "Without model names, it deletes every model, including the voice activity detection model. " +
         "A deleted model downloads again the next time a transcription needs it. Confirm with the user before calling it.")]
     public static async Task<string> DeleteModelsAsync(
         WhisperHost host,
-        [Description("Models to delete, such as base or large-v3-turbo-q5_0. Omit it to delete all of them.")] string[]? models = null)
+        [Description("Models to delete, such as base, large-v3-turbo-q5_0, or parakeet-ultra. Omit it to delete all of them.")] string[]? models = null)
     {
         IReadOnlyList<string> fileNames;
         if (models is { Length: > 0 })
@@ -195,6 +227,12 @@ internal sealed class TranscriptionTools
         static string DisplayName(string fileName) =>
             fileName == ModelCatalog.VadModelFileName ? "the voice activity detection model" : ModelCatalog.GetModelName(fileName) ?? fileName;
     }
+
+    /// <summary>Gets the prompt that an engine reads.</summary>
+    /// <param name="engine">The engine of the model.</param>
+    /// <param name="prompt">The prompt built from the hints, or <see langword="null"/>.</param>
+    /// <returns>The prompt for Whisper; <see langword="null"/> for engines without prompts, which ignore the hints.</returns>
+    internal static string? PromptFor(SpeechEngine engine, string? prompt) => engine == SpeechEngine.Whisper ? prompt : null;
 
     /// <summary>Gets the path of a model, downloading it first if it's missing and downloads are allowed.</summary>
     /// <param name="host">The model host.</param>

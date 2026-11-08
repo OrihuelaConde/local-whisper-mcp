@@ -164,7 +164,7 @@ clients, set them as environment variables:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `LOCAL_WHISPER_MODEL` | `large-v3-turbo-q8_0` | Any model from [whisper.cpp's model list](https://huggingface.co/ggerganov/whisper.cpp/tree/main), by name (`base`) or file name (`ggml-base.bin`). |
+| `LOCAL_WHISPER_MODEL` | `large-v3-turbo-q8_0` | Any model from [whisper.cpp's model list](https://huggingface.co/ggerganov/whisper.cpp/tree/main), by name (`base`) or file name (`ggml-base.bin`). On Windows x64, `parakeet-ultra` runs [Parakeet-ultra](https://huggingface.co/handy-computer/parakeet-ultra-gguf) on transcribe.cpp instead: faster, above all without a GPU, but only for 25 European languages and without hints. |
 | `LOCAL_WHISPER_LANGUAGE` | `auto` | A language code such as `en` or `es`, or `auto` to detect it. |
 | `LOCAL_WHISPER_USE_GPU` | `true` | `false` runs only on the CPU. |
 | `LOCAL_WHISPER_RUNTIME` | `auto` | `auto`, `cpu`, or `vulkan`. A runtime that can't load falls back to the CPU. |
