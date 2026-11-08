@@ -38,31 +38,31 @@ internal static class LoopGuard
     /// <summary>Looks for a sign that the decoder got stuck.</summary>
     /// <param name="run">The output of one decode.</param>
     /// <returns>Where and why the decoder got stuck, or <see langword="null"/> if the output looks normal.</returns>
+    /// <remarks>
+    /// The signals are tried in order of how precisely they place the cut: the token rate first,
+    /// then the library's own stop, then a repeated phrase. A phrase's first word can start a few
+    /// tens of milliseconds before the stuck frame; on a 0 dB recording of the proof of concept, a
+    /// cut there gave a repair that ended in invented words. So the phrase decides only when
+    /// nothing else fires.
+    /// </remarks>
     public static LoopSignal? Detect(DecodeRun run)
     {
-        var signals = new List<LoopSignal>();
-        if (run.StoppedEarly)
-        {
-            var at = run.TokenStartsMs.Count > 0 ? run.TokenStartsMs[^1] : run.Words.Count > 0 ? run.Words[^1].StartMs : 0;
-            signals.Add(new LoopSignal(at, "the library stopped the decode early"));
-        }
-
         var tokens = run.TokenStartsMs;
         for (var i = 0; i + StuckTokens < tokens.Count; i++)
         {
             if (tokens[i + StuckTokens] - tokens[i] < StuckWindowMs)
             {
-                signals.Add(new LoopSignal(tokens[i], $"{StuckTokens} tokens in under {StuckWindowMs / 1000} s"));
-                break;
+                return new LoopSignal(tokens[i], $"{StuckTokens} tokens in under {StuckWindowMs / 1000} s");
             }
         }
 
-        if (FindRepeatedPhrase(run.Words) is { } phrase)
+        if (run.StoppedEarly)
         {
-            signals.Add(phrase);
+            var at = tokens.Count > 0 ? tokens[^1] : run.Words.Count > 0 ? run.Words[^1].StartMs : 0;
+            return new LoopSignal(at, "the library stopped the decode early");
         }
 
-        return signals.Count == 0 ? null : signals.MinBy(signal => signal.AtMs);
+        return FindRepeatedPhrase(run.Words);
     }
 
     /// <summary>Transcribes a stretch of audio, transcribing again any part where the decoder got stuck.</summary>

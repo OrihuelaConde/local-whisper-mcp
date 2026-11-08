@@ -127,6 +127,24 @@ public sealed class ParakeetTests
     }
 
     [Fact]
+    public void The_token_rate_decides_where_to_cut_when_a_repeated_phrase_also_fires()
+    {
+        // As in the 0 dB recording: the phrase starts at 9,800 ms and the tokens pile up from 9,840 ms.
+        var words = new List<TimedWord>();
+        for (var i = 0; i < 10; i++)
+        {
+            words.AddRange([Word("de", 9_800, 9_840), Word("la", 9_840, 9_840), Word("Universidad,", 9_840, 9_840)]);
+        }
+
+        List<long> tokens = [.. Enumerable.Range(0, 40).Select(i => (long)i * 200), .. Enumerable.Repeat(9_840L, 100)];
+
+        var signal = LoopGuard.Detect(new DecodeRun(words, tokens, [new TimedSpan(2_400, 11_920)], false));
+
+        Assert.Equal(9_840, signal?.AtMs);
+        Assert.StartsWith("60 tokens", signal?.Reason);
+    }
+
+    [Fact]
     public void A_run_the_library_stopped_early_is_a_loop_at_its_last_token()
     {
         Assert.Equal(4_000, LoopGuard.Detect(new DecodeRun([Word("hola", 0, 500)], [0, 2_000, 4_000], [new TimedSpan(0, 5_000)], true))?.AtMs);
