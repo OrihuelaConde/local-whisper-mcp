@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "local-whisper-mcp",
   "display_name": "Local Whisper",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Transcribe audio and video with Whisper on your own computer, so recordings never leave it. Runs on the GPU or the CPU, and gives Claude plain text, SRT subtitles, or JSON with timestamps.",
   "author": {
     "name": "José Luis Orihuela Conde",

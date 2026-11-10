@@ -7,6 +7,8 @@ version's section as its release notes.
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-10
+
 ### Added
 
 - Parakeet as a second engine: `model: "parakeet-ultra"` in `transcribe`, or
@@ -114,6 +116,7 @@ The first public release. Versions before 1.0.0 were internal test builds.
   `LOCAL_WHISPER_ALLOWED_ROOTS`, `LOCAL_WHISPER_INBOX_DIR`, `LOCAL_WHISPER_MODELS_DIR`,
   `LOCAL_WHISPER_AUTO_DOWNLOAD`, `LOCAL_WHISPER_THREADS`, and `LOCAL_WHISPER_FFMPEG`.
 
-[Unreleased]: https://github.com/OrihuelaConde/local-whisper-mcp/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/OrihuelaConde/local-whisper-mcp/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/OrihuelaConde/local-whisper-mcp/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/OrihuelaConde/local-whisper-mcp/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/OrihuelaConde/local-whisper-mcp/releases/tag/v1.0.0
