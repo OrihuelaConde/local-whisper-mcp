@@ -76,7 +76,18 @@ internal sealed class WhisperHost : IDisposable
                     (DateTimeOffset.UtcNow - started).TotalSeconds);
             }
 
-            return await model.TranscribeAsync(samples, request, progress, cancellationToken);
+            try
+            {
+                return await model.TranscribeAsync(samples, request, progress, cancellationToken);
+            }
+            catch (TranscribeCpp.TranscribeCppException)
+            {
+                // A model whose run failed in native code may be in any state, so the next call loads it again.
+                model.Dispose();
+                model = null;
+                logger.LogInformation("Released the model after the failure.");
+                throw;
+            }
         }
         finally
         {
@@ -146,7 +157,15 @@ internal sealed class WhisperHost : IDisposable
     public void Dispose()
     {
         idleTimer.Dispose();
-        model?.Dispose();
+
+        // A transcription still running uses the model's native memory, so the model waits for it.
+        // On shutdown the wait is short: the process frees everything when it ends anyway.
+        if (gate.Wait(TimeSpan.FromSeconds(5)))
+        {
+            model?.Dispose();
+            model = null;
+        }
+
         logForwarding.Dispose();
         gate.Dispose();
     }

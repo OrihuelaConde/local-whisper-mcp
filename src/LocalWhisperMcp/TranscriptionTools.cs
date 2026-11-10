@@ -144,7 +144,7 @@ internal sealed class TranscriptionTools
             Inbox.DeleteIfInside(audioPath, settings.InboxDirectory, logger);
             return transcript;
         }
-        catch (ArgumentException exception) when (exception.ParamName == "language")
+        catch (ArgumentException exception) when (exception.ParamName is "language" or "samples")
         {
             // The message starts with the model's own reason, which the ArgumentException suffix would spoil.
             throw new McpException(exception.Message[..(exception.Message.LastIndexOf(" (Parameter", StringComparison.Ordinal) is var end and >= 0 ? end : exception.Message.Length)], exception);

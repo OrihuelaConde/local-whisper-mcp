@@ -90,12 +90,12 @@ jobs:
       - name: Restore the Parakeet model from the cache
         uses: actions/cache@v4
         with:
-          path: ${{ runner.temp }}/parakeet-model
+          path: ${{ github.workspace }}/parakeet-model
           key: parakeet-ultra-Q8_0-007a59761e9258779f189df396b50d12b83bb5b79e66df4b955c230d2f2a0a59
 
       - name: Download the Parakeet model with the server
         env:
-          LOCAL_WHISPER_MODELS_DIR: ${{ runner.temp }}/parakeet-model
+          LOCAL_WHISPER_MODELS_DIR: ${{ github.workspace }}/parakeet-model
         run: |
           $server = Resolve-Path (Join-Path out ($IsWindows ? 'local-whisper-mcp.exe' : 'local-whisper-mcp'))
           & $server download parakeet-ultra
@@ -105,12 +105,12 @@ jobs:
 
       - name: Run the tests that need the Parakeet model
         env:
-          LOCAL_WHISPER_TEST_PARAKEET: ${{ runner.temp }}/parakeet-model/parakeet-ultra-Q8_0.gguf
+          LOCAL_WHISPER_TEST_PARAKEET: ${{ github.workspace }}/parakeet-model/parakeet-ultra-Q8_0.gguf
         run: dotnet test --project tests/LocalWhisperMcp.Tests
 
       - name: Transcribe with Parakeet on the CPU through the MCP server
         env:
-          LOCAL_WHISPER_MODELS_DIR: ${{ runner.temp }}/parakeet-model
+          LOCAL_WHISPER_MODELS_DIR: ${{ github.workspace }}/parakeet-model
           LOCAL_WHISPER_USE_GPU: "false"
           LOCAL_WHISPER_AUTO_DOWNLOAD: "false"
           LOCAL_WHISPER_ALLOWED_ROOTS: ${{ runner.temp }}/audio

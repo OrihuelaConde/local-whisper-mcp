@@ -79,7 +79,7 @@ internal static unsafe class TranscribeCppLibrary
     {
         if (status != Native.Ok)
         {
-            throw new TranscribeCppException($"transcribe.cpp failed {step}: {Native.Describe(status)}.");
+            throw new TranscribeCppException($"transcribe.cpp failed {step}: {Native.Describe(status)}.", status);
         }
     }
 
@@ -150,9 +150,17 @@ internal static unsafe class TranscribeCppLibrary
             2 => LogLevel.Warning,
             _ => LogLevel.Debug,
         };
-        if (logger is { } target && target.IsEnabled(logLevel))
+        // An exception can't cross back into native code: it would end the process.
+        try
         {
-            target.Log(logLevel, "transcribe.cpp: {Message}", Native.ReadString(message).TrimEnd());
+            if (logger is { } target && target.IsEnabled(logLevel))
+            {
+                target.Log(logLevel, "transcribe.cpp: {Message}", Native.ReadString(message).TrimEnd());
+            }
+        }
+        catch (Exception)
+        {
+            // A message that can't be logged is dropped.
         }
     }
 }
@@ -171,6 +179,15 @@ internal sealed class TranscribeCppException : Exception
         : base(message)
     {
     }
+
+    /// <summary>Initializes a new instance of the <see cref="TranscribeCppException"/> class with a message and the status code of the failed call.</summary>
+    /// <param name="message">The message.</param>
+    /// <param name="status">The library's status code.</param>
+    public TranscribeCppException(string message, int status)
+        : base(message) => Status = status;
+
+    /// <summary>Gets the library's status code, or <see langword="null"/> if the failure didn't come from a call.</summary>
+    public int? Status { get; }
 
     /// <summary>Initializes a new instance of the <see cref="TranscribeCppException"/> class with a message and its cause.</summary>
     /// <param name="message">The message.</param>

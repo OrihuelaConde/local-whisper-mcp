@@ -34,7 +34,9 @@ internal static partial class ModelCatalog
     /// <remarks>
     /// Parakeet-ultra is Moondream's post-trained parakeet-tdt-0.6b-v3, converted to GGUF by the
     /// transcribe.cpp authors, under the CC-BY-4.0 license. Only the Q8_0 file is offered: it
-    /// measured as accurate as the larger ones.
+    /// measured as accurate as the larger ones. The address names a commit of the Hugging Face
+    /// repository, and the SHA-256 is the file the server was tested with, so a later upload under
+    /// the same name can't replace it.
     /// </remarks>
     public static IReadOnlyList<CatalogModel> OtherModels { get; } =
     [
@@ -42,7 +44,8 @@ internal static partial class ModelCatalog
             ParakeetUltra,
             SpeechEngine.TranscribeCpp,
             "parakeet-ultra-Q8_0.gguf",
-            new Uri("https://huggingface.co/handy-computer/parakeet-ultra-gguf/resolve/main/parakeet-ultra-Q8_0.gguf")),
+            new Uri("https://huggingface.co/handy-computer/parakeet-ultra-gguf/resolve/a1539be1b849ea7463b88343e5277b373d0c4ea9/parakeet-ultra-Q8_0.gguf"),
+            "007a59761e9258779f189df396b50d12b83bb5b79e66df4b955c230d2f2a0a59"),
     ];
 
     /// <summary>Gets every model the server can download: the Whisper models, then the others.</summary>
@@ -122,6 +125,11 @@ internal static partial class ModelCatalog
             : null;
     }
 
+    /// <summary>Gets the SHA-256 that a model file must have, when the catalog pins one.</summary>
+    /// <param name="fileName">The file name.</param>
+    /// <returns>The lowercase hexadecimal hash, or <see langword="null"/> for files without a pinned hash, such as Whisper models, which Hugging Face's own hash checks.</returns>
+    public static string? GetPinnedSha256(string fileName) => OtherModels.FirstOrDefault(model => model.FileName == fileName)?.Sha256;
+
     /// <summary>Gets the name that status and tool replies use for an engine.</summary>
     /// <param name="engine">The engine.</param>
     /// <returns><c>whisper.cpp</c> or <c>transcribe.cpp</c>.</returns>
@@ -148,4 +156,5 @@ internal enum SpeechEngine
 /// <param name="Engine">The engine that runs it.</param>
 /// <param name="FileName">The file name in the models directory.</param>
 /// <param name="DownloadUri">Where to download it.</param>
-internal sealed record CatalogModel(string Name, SpeechEngine Engine, string FileName, Uri DownloadUri);
+/// <param name="Sha256">The SHA-256 the downloaded file must have, in lowercase hexadecimal.</param>
+internal sealed record CatalogModel(string Name, SpeechEngine Engine, string FileName, Uri DownloadUri, string Sha256);

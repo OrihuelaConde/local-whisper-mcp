@@ -96,23 +96,40 @@
     </When>
   </Choose>
   <PropertyGroup>
-    <TranscribeCppRid Condition="'$(TranscribeCppWheelUrl)' != ''">$(_TranscribeCppTarget)</TranscribeCppRid>
+    <TranscribeCppRid Condition="'$(TranscribeCppWheelUrl)' != '' and '$(TranscribeCppSkip)' != 'true'">$(_TranscribeCppTarget)</TranscribeCppRid>
     <TranscribeCppCache>$(MSBuildProjectDirectory)\$(BaseIntermediateOutputPath)transcribe-cpp\$(TranscribeCppVersion)\$(TranscribeCppRid)\</TranscribeCppCache>
   </PropertyGroup>
 
+  <!-- An offline build can leave Parakeet out with -p:TranscribeCppSkip=true. -->
+  <Target Name="ReportSkippedTranscribeCpp" BeforeTargets="AssignTargetPaths" Condition="'$(TranscribeCppSkip)' == 'true' and '$(TranscribeCppWheelUrl)' != ''">
+    <Warning Text="TranscribeCppSkip is true, so this build leaves out transcribe.cpp for $(_TranscribeCppTarget), and Parakeet models won't run on it." />
+  </Target>
+
   <Target Name="AddTranscribeCppRuntime" BeforeTargets="AssignTargetPaths" AfterTargets="KeepWhisperRuntimesOfTargetPlatform" Condition="'$(TranscribeCppRid)' != ''">
     <PropertyGroup>
-      <_TranscribeCppWheel>$(TranscribeCppCache)$([System.IO.Path]::GetFileName('$(TranscribeCppWheelUrl)'))</_TranscribeCppWheel>
+      <_TranscribeCppWheelName>$([System.IO.Path]::GetFileName('$(TranscribeCppWheelUrl)'))</_TranscribeCppWheelName>
+      <_TranscribeCppWheel>$(TranscribeCppCache)$(_TranscribeCppWheelName)</_TranscribeCppWheel>
+      <_TranscribeCppPartial>$(_TranscribeCppWheel).download</_TranscribeCppPartial>
       <_TranscribeCppExtracted>$(TranscribeCppCache)extracted\</_TranscribeCppExtracted>
+      <_TranscribeCppStamp>$(TranscribeCppCache)extracted.complete</_TranscribeCppStamp>
     </PropertyGroup>
 
-    <DownloadFile SourceUrl="$(TranscribeCppWheelUrl)" DestinationFolder="$(TranscribeCppCache)" Condition="!Exists('$(_TranscribeCppWheel)')" Retries="3" />
+    <!-- The download lands under a temporary name, so an interrupted one is never taken for the wheel. -->
+    <Delete Files="$(_TranscribeCppPartial)" Condition="!Exists('$(_TranscribeCppWheel)')" />
+    <DownloadFile SourceUrl="$(TranscribeCppWheelUrl)" DestinationFolder="$(TranscribeCppCache)" DestinationFileName="$(_TranscribeCppWheelName).download" Retries="3" ContinueOnError="true" Condition="!Exists('$(_TranscribeCppWheel)')" />
+    <Error Condition="!Exists('$(_TranscribeCppWheel)') and !Exists('$(_TranscribeCppPartial)')" Text="Couldn't download the transcribe.cpp wheel from $(TranscribeCppWheelUrl). Check the network connection, or build with -p:TranscribeCppSkip=true to leave Parakeet out of this build." />
+    <Move SourceFiles="$(_TranscribeCppPartial)" DestinationFiles="$(_TranscribeCppWheel)" Condition="!Exists('$(_TranscribeCppWheel)')" />
+
     <GetFileHash Files="$(_TranscribeCppWheel)" Algorithm="SHA256">
       <Output TaskParameter="Hash" PropertyName="_TranscribeCppWheelHash" />
     </GetFileHash>
-    <Delete Files="$(_TranscribeCppWheel)" Condition="'$(_TranscribeCppWheelHash.ToLowerInvariant())' != '$(TranscribeCppWheelSha256)'" />
+    <Delete Files="$(_TranscribeCppWheel);$(_TranscribeCppStamp)" Condition="'$(_TranscribeCppWheelHash.ToLowerInvariant())' != '$(TranscribeCppWheelSha256)'" />
     <Error Condition="'$(_TranscribeCppWheelHash.ToLowerInvariant())' != '$(TranscribeCppWheelSha256)'" Text="The transcribe.cpp wheel from $(TranscribeCppWheelUrl) has SHA-256 $(_TranscribeCppWheelHash), not $(TranscribeCppWheelSha256). The download is deleted; build again to retry." />
-    <Unzip SourceFiles="$(_TranscribeCppWheel)" DestinationFolder="$(_TranscribeCppExtracted)" Condition="!Exists('$(_TranscribeCppExtracted)transcribe_cpp_native\_native\contract.json')" />
+
+    <!-- The stamp marks a finished extraction, so an interrupted one starts over. -->
+    <RemoveDir Directories="$(_TranscribeCppExtracted)" Condition="!Exists('$(_TranscribeCppStamp)')" />
+    <Unzip SourceFiles="$(_TranscribeCppWheel)" DestinationFolder="$(_TranscribeCppExtracted)" Condition="!Exists('$(_TranscribeCppStamp)')" />
+    <Touch Files="$(_TranscribeCppStamp)" AlwaysCreate="true" Condition="!Exists('$(_TranscribeCppStamp)')" />
 
     <ItemGroup>
       <_TranscribeCppFile Include="$(_TranscribeCppExtracted)transcribe_cpp_native\_native\*.dll;$(_TranscribeCppExtracted)transcribe_cpp_native\_native\*.so;$(_TranscribeCppExtracted)transcribe_cpp_native\_native\*.dylib" />

@@ -19,6 +19,9 @@ internal static unsafe partial class Native
     /// <summary>The status code of a successful call.</summary>
     public const int Ok = 0;
 
+    /// <summary>The status code when a compute backend failed, such as a GPU that stopped responding.</summary>
+    public const int ErrorBackend = 8;
+
     /// <summary>The status code when the abort callback stopped the run.</summary>
     public const int ErrorAborted = 13;
 

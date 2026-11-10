@@ -11,9 +11,11 @@ public sealed class ParakeetTests
         Assert.Equal("parakeet-ultra-Q8_0.gguf", ModelCatalog.GetFileName("parakeet-ultra"));
         Assert.Equal("parakeet-ultra", ModelCatalog.GetModelName("parakeet-ultra-Q8_0.gguf"));
         Assert.Equal(
-            "https://huggingface.co/handy-computer/parakeet-ultra-gguf/resolve/main/parakeet-ultra-Q8_0.gguf",
+            "https://huggingface.co/handy-computer/parakeet-ultra-gguf/resolve/a1539be1b849ea7463b88343e5277b373d0c4ea9/parakeet-ultra-Q8_0.gguf",
             ModelCatalog.GetDownloadUri("parakeet-ultra-Q8_0.gguf")?.AbsoluteUri);
         Assert.Contains("parakeet-ultra", ModelCatalog.KnownModels);
+        Assert.Equal("007a59761e9258779f189df396b50d12b83bb5b79e66df4b955c230d2f2a0a59", ModelCatalog.GetPinnedSha256("parakeet-ultra-Q8_0.gguf"));
+        Assert.Null(ModelCatalog.GetPinnedSha256("ggml-base.bin"));
     }
 
     [Theory]
@@ -172,7 +174,7 @@ public sealed class ParakeetTests
         }
 
         var repairs = new List<LoopSignal>();
-        var words = LoopGuard.Transcribe(Decode, 30_000, repairs.Add);
+        var words = LoopGuard.Transcribe(Decode, 30_000, (signal, repaired) => repairs.Add(signal));
 
         Assert.Equal([(0L, 30_000L), (4_700L, 10_000L), (10_000L, 20_000L)], calls);
         Assert.Single(repairs);
@@ -182,20 +184,106 @@ public sealed class ParakeetTests
     }
 
     [Fact]
-    public void The_guard_stops_after_three_nested_repairs()
+    public void A_stretch_whose_cut_would_be_the_same_range_is_never_decoded_again()
     {
-        var calls = 0;
+        // The loop starts at the very start of the only segment, so a repair would decode the same audio.
+        var calls = new List<(long, long)>();
+        var outcomes = new List<bool>();
         var words = LoopGuard.Transcribe(
             (start, end) =>
             {
-                calls++;
+                calls.Add((start, end));
                 return new DecodeRun([Word("x", 0, 10)], [.. Enumerable.Repeat(0L, 80)], [new TimedSpan(0, end - start)], false);
             },
-            8_000);
+            8_000,
+            (signal, repaired) => outcomes.Add(repaired));
 
-        // Each level splits every piece in two at its start, so only the second half recurses.
-        Assert.Equal(1 + 1 + 1 + 1, calls);
-        Assert.NotEmpty(words);
+        Assert.Equal([(0L, 8_000L)], calls);
+        Assert.Equal([false], outcomes);
+        Assert.Empty(words);
+    }
+
+    [Fact]
+    public void At_the_depth_limit_the_words_before_the_loop_are_kept_and_the_rest_dropped()
+    {
+        // Every decode loops halfway through its stretch, so the guard nests until it gives up.
+        var outcomes = new List<bool>();
+        var words = LoopGuard.Transcribe(
+            (start, end) =>
+            {
+                var middle = (end - start) / 2;
+                return new DecodeRun(
+                    [Word("antes", 0, 100), Word("bucle", middle, middle)],
+                    [.. Enumerable.Repeat(middle, 80)],
+                    [new TimedSpan(0, end - start)],
+                    false);
+            },
+            16_000,
+            (signal, repaired) => outcomes.Add(repaired));
+
+        Assert.Contains(true, outcomes);
+        Assert.Contains(false, outcomes);
+        Assert.DoesNotContain(words, word => word.Text == "bucle");
+        Assert.Contains(words, word => word.Text == "antes");
+    }
+
+    [Fact]
+    public void The_segment_with_the_pile_up_is_repaired_even_when_the_window_starts_in_the_previous_one()
+    {
+        // Normal speech, a token every 100 ms, ends a segment at 9.5 s; the next segment starts at
+        // 10 s and gets stuck at 10.5 s. The 60-token window starts in the previous segment.
+        List<long> tokens = [.. Enumerable.Range(0, 96).Select(i => (long)i * 100), .. Enumerable.Repeat(10_500L, 100)];
+        var calls = new List<(long Start, long End)>();
+        DecodeRun Decode(long start, long end)
+        {
+            calls.Add((start, end));
+            if (start == 0)
+            {
+                return new DecodeRun(
+                    [Word("bien.", 9_000, 9_500, group: 0), Word("Universidad", 10_500, 10_500, group: 1)],
+                    tokens,
+                    [new TimedSpan(0, 9_500), new TimedSpan(10_000, 20_000)],
+                    false);
+            }
+
+            return new DecodeRun([Word($"parte{calls.Count}", 0, 100)], [0], [new TimedSpan(0, end - start)], false);
+        }
+
+        var signals = new List<LoopSignal>();
+        var words = LoopGuard.Transcribe(Decode, 20_000, (signal, repaired) => signals.Add(signal));
+
+        Assert.Equal(10_500, Assert.Single(signals).PileUpMs);
+        Assert.Equal(["bien.", "parte2", "parte3"], words.Select(word => word.Text));
+
+        // The repair stays inside the stuck segment: it starts after the previous one ends.
+        Assert.All(calls.Skip(1), call => Assert.True(call.Start >= 9_500, $"A repair started at {call.Start} ms."));
+    }
+
+    [Fact]
+    public void A_second_loop_in_a_later_segment_is_repaired_too()
+    {
+        var calls = new List<(long Start, long End)>();
+        DecodeRun Decode(long start, long end)
+        {
+            calls.Add((start, end));
+            if (start == 0)
+            {
+                return new DecodeRun(
+                    [Word("uno.", 1_000, 2_000, group: 0), Word("bucle", 6_000, 6_000, group: 1), Word("tres.", 12_000, 13_000, group: 2), Word("otro", 17_000, 17_000, group: 3)],
+                    [1_000, .. Enumerable.Repeat(6_000L, 80), 12_000, .. Enumerable.Repeat(17_000L, 80)],
+                    [new TimedSpan(500, 3_000), new TimedSpan(5_000, 8_000), new TimedSpan(11_000, 14_000), new TimedSpan(16_000, 19_000)],
+                    false);
+            }
+
+            return new DecodeRun([Word($"parte{calls.Count}", 0, 100)], [0], [new TimedSpan(0, end - start)], false);
+        }
+
+        var signals = new List<LoopSignal>();
+        var words = LoopGuard.Transcribe(Decode, 20_000, (signal, repaired) => signals.Add(signal));
+
+        Assert.Equal([6_000L, 17_000L], signals.Select(signal => signal.PileUpMs));
+        Assert.Equal(["uno.", "parte2", "parte3", "tres.", "parte4", "parte5"], words.Select(word => word.Text));
+        Assert.DoesNotContain(words, word => word.Text is "bucle" or "otro");
     }
 
     private static TimedWord Word(string text, long start, long end, int group = 0) => new(text, start, end, group);

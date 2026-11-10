@@ -14,8 +14,14 @@ internal sealed class ParakeetModel : ISpeechModel
 {
     private const int SamplesPerMs = AudioDecoder.SampleRate / 1000;
 
+    // Shorter audio has no word in it, and the library rejects it as an invalid argument.
+    private const int MinSamples = AudioDecoder.SampleRate / 10;
+
     private readonly ILogger logger;
-    private readonly HashSet<string> languages;
+    private readonly int threads;
+    private HashSet<string> languages = [];
+    private bool onCpu;
+
     // One byte that the abort callback reads; the cancellation token sets it.
     private nint abortFlag;
     private nint model;
@@ -27,40 +33,26 @@ internal sealed class ParakeetModel : ISpeechModel
     /// <param name="threads">The number of CPU threads to use.</param>
     /// <param name="logger">The logger for load events, loop repairs, and the library's messages.</param>
     /// <exception cref="TranscribeCppException">The library or the model couldn't load.</exception>
-    public unsafe ParakeetModel(string modelPath, string runtime, int threads, ILogger logger)
+    public ParakeetModel(string modelPath, string runtime, int threads, ILogger logger)
     {
         ModelPath = modelPath;
         this.logger = logger;
+        this.threads = threads;
         TranscribeCppLibrary.EnsureInitialized(cpuOnly: runtime == "cpu", logger);
-
-        model = Load(modelPath, runtime);
-        try
+        if (runtime == "cuda")
         {
-            Native.Capabilities capabilities;
-            Native.transcribe_capabilities_init(&capabilities);
-            TranscribeCppLibrary.Check(Native.transcribe_model_get_capabilities(model, &capabilities), "to read the model's capabilities");
-            languages = new HashSet<string>(StringComparer.Ordinal);
-            for (var i = 0; i < capabilities.LanguageCount; i++)
-            {
-                languages.Add(Native.ReadString(capabilities.Languages[i]));
-            }
-
-            Native.SessionParams parameters;
-            Native.transcribe_session_params_init(&parameters);
-            parameters.Threads = threads;
-            nint created;
-            TranscribeCppLibrary.Check(Native.transcribe_session_init(model, &parameters, &created), "to open a session");
-            session = created;
-
-            abortFlag = (nint)NativeMemory.AllocZeroed(1);
-            Native.transcribe_set_abort_callback(session, &OnAbort, (void*)abortFlag);
-            Device = DescribeDevice(Native.transcribe_model_device(model));
+            logger.LogWarning("Parakeet models don't run on CUDA in this version; using {Backend}, or the CPU if it isn't available.", OperatingSystem.IsMacOS() ? "Metal" : "Vulkan");
         }
-        catch
+
+        // Every preference ends with the CPU, as Whisper's runtimes do. AUTO picks the best GPU the
+        // library registered: Vulkan on Windows and Linux, Metal on an Apple silicon Mac. A Mac has
+        // no Vulkan, so a request for it, or for CUDA, gets the Mac's own GPU instead.
+        Open(runtime switch
         {
-            Dispose();
-            throw;
-        }
+            "cpu" => [Native.BackendCpu],
+            "vulkan" or "cuda" when !OperatingSystem.IsMacOS() => [Native.BackendVulkan, Native.BackendCpu],
+            _ => [Native.BackendAuto, Native.BackendCpu],
+        });
     }
 
     /// <inheritdoc/>
@@ -70,34 +62,43 @@ internal sealed class ParakeetModel : ISpeechModel
     public SpeechEngine Engine => SpeechEngine.TranscribeCpp;
 
     /// <inheritdoc/>
-    public string? Device { get; }
+    public string? Device { get; private set; }
 
     /// <summary>Gets the language codes the model supports.</summary>
     public IReadOnlyCollection<string> Languages => languages;
 
     /// <inheritdoc/>
+    /// <exception cref="ArgumentException">The model doesn't support the language (parameter <c>language</c>), or the samples aren't all finite numbers (parameter <c>samples</c>).</exception>
     public async Task<TranscriptionResult> TranscribeAsync(float[] samples, SpeechRequest request, IProgress<int>? progress, CancellationToken cancellationToken)
     {
         var duration = TimeSpan.FromSeconds(samples.Length / (double)AudioDecoder.SampleRate);
         CheckLanguage(languages, request.Language, ModelCatalog.GetModelName(Path.GetFileName(ModelPath)) ?? Path.GetFileName(ModelPath));
-
-        if (samples.Length == 0)
+        if (samples.Length < MinSamples)
         {
             return new TranscriptionResult([], [], duration, null);
+        }
+
+        if (Array.Exists(samples, sample => !float.IsFinite(sample)))
+        {
+            throw new ArgumentException("The audio has samples that aren't finite numbers, so it can't be transcribed. Convert the file again, for example with ffmpeg, and try again.", nameof(samples));
         }
 
         // The library reports no progress, so the client gets one message when the work starts.
         progress?.Report(0);
         var language = request.Language == "auto" ? null : TranscribeCppLibrary.Utf8(request.Language);
-        Marshal.WriteByte(abortFlag, 0);
-        using var registration = cancellationToken.Register(static state => Marshal.WriteByte((nint)state!, 1), abortFlag);
-        var words = await Task.Run(
-            () => LoopGuard.Transcribe(
-                (startMs, endMs) => Decode(samples, startMs, endMs, language, cancellationToken),
-                (long)duration.TotalMilliseconds,
-                signal => logger.LogWarning("Parakeet got stuck at {Seconds:F1} s ({Reason}); transcribing that stretch again in two parts.", signal.AtMs / 1000.0, signal.Reason)),
-            CancellationToken.None);
-        cancellationToken.ThrowIfCancellationRequested();
+        IReadOnlyList<TimedWord> words;
+        try
+        {
+            words = await RunAsync(samples, duration, language, cancellationToken);
+        }
+        catch (TranscribeCppException exception) when (exception.Status == Native.ErrorBackend && !onCpu)
+        {
+            // A GPU that fails while it runs, such as a driver reset, leaves the CPU to finish the job.
+            logger.LogWarning(exception, "Parakeet failed on {Device}; loading it on the CPU and transcribing again.", Device);
+            Close();
+            Open([Native.BackendCpu]);
+            words = await RunAsync(samples, duration, language, cancellationToken);
+        }
 
         // Parakeet has no language output, so the json format reports null.
         return new TranscriptionResult(SegmentBuilder.Build(words), [new SpeechSpan(TimeSpan.Zero, duration)], duration, null);
@@ -122,18 +123,7 @@ internal sealed class ParakeetModel : ISpeechModel
     /// <inheritdoc/>
     public unsafe void Dispose()
     {
-        if (session != 0)
-        {
-            Native.transcribe_session_free(session);
-            session = 0;
-        }
-
-        if (model != 0)
-        {
-            Native.transcribe_model_free(model);
-            model = 0;
-        }
-
+        Close();
         if (abortFlag != 0)
         {
             NativeMemory.Free((void*)abortFlag);
@@ -170,23 +160,89 @@ internal sealed class ParakeetModel : ISpeechModel
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
     private static unsafe byte OnAbort(void* userData) => *(byte*)userData;
 
-    private unsafe nint Load(string modelPath, string runtime)
+    private async Task<IReadOnlyList<TimedWord>> RunAsync(float[] samples, TimeSpan duration, byte[]? language, CancellationToken cancellationToken)
     {
-        // Every preference ends with the CPU, as Whisper's runtimes do. AUTO picks the best GPU the
-        // library registered: Vulkan on Windows and Linux, Metal on an Apple silicon Mac. A Mac has
-        // no Vulkan, so a request for it, or for CUDA, gets the Mac's own GPU instead.
-        int[] requests = runtime switch
+        Marshal.WriteByte(abortFlag, 0);
+        using var registration = cancellationToken.Register(static state => Marshal.WriteByte((nint)state!, 1), abortFlag);
+        var words = await Task.Run(
+            () => LoopGuard.Transcribe(
+                (startMs, endMs) => Decode(samples, startMs, endMs, language, cancellationToken),
+                (long)duration.TotalMilliseconds,
+                OnLoop),
+            CancellationToken.None);
+        cancellationToken.ThrowIfCancellationRequested();
+        return words;
+    }
+
+    private void OnLoop(LoopSignal signal, bool repaired)
+    {
+        if (repaired)
         {
-            "cpu" => [Native.BackendCpu],
-            "vulkan" or "cuda" when !OperatingSystem.IsMacOS() => [Native.BackendVulkan, Native.BackendCpu],
-            _ => [Native.BackendAuto, Native.BackendCpu],
-        };
-        if (runtime == "cuda")
+            logger.LogWarning("Parakeet got stuck at {Seconds:F1} s ({Reason}); transcribing that stretch again in two parts.", signal.AtMs / 1000.0, signal.Reason);
+        }
+        else
         {
-            logger.LogWarning("Parakeet models don't run on CUDA in this version; using {Backend}, or the CPU if it isn't available.", OperatingSystem.IsMacOS() ? "Metal" : "Vulkan");
+            logger.LogWarning("Parakeet got stuck at {Seconds:F1} s ({Reason}) and the stretch can't be split further; keeping the words before it and dropping the rest of that segment.", signal.AtMs / 1000.0, signal.Reason);
+        }
+    }
+
+    private unsafe void Open(int[] requests)
+    {
+        model = Load(requests);
+        try
+        {
+            Native.Capabilities capabilities;
+            Native.transcribe_capabilities_init(&capabilities);
+            TranscribeCppLibrary.Check(Native.transcribe_model_get_capabilities(model, &capabilities), "to read the model's capabilities");
+            var codes = new HashSet<string>(StringComparer.Ordinal);
+            for (var i = 0; i < capabilities.LanguageCount; i++)
+            {
+                codes.Add(Native.ReadString(capabilities.Languages[i]));
+            }
+
+            languages = codes;
+
+            Native.SessionParams parameters;
+            Native.transcribe_session_params_init(&parameters);
+            parameters.Threads = threads;
+            nint created;
+            TranscribeCppLibrary.Check(Native.transcribe_session_init(model, &parameters, &created), "to open a session");
+            session = created;
+
+            if (abortFlag == 0)
+            {
+                abortFlag = (nint)NativeMemory.AllocZeroed(1);
+            }
+
+            Native.transcribe_set_abort_callback(session, &OnAbort, (void*)abortFlag);
+            Device = DescribeDevice(Native.transcribe_model_device(model));
+            onCpu = Device == "CPU";
+        }
+        catch
+        {
+            Dispose();
+            throw;
+        }
+    }
+
+    private void Close()
+    {
+        if (session != 0)
+        {
+            Native.transcribe_session_free(session);
+            session = 0;
         }
 
-        var path = TranscribeCppLibrary.Utf8(modelPath);
+        if (model != 0)
+        {
+            Native.transcribe_model_free(model);
+            model = 0;
+        }
+    }
+
+    private unsafe nint Load(int[] requests)
+    {
+        var path = TranscribeCppLibrary.Utf8(ModelPath);
         TranscribeCppException? last = null;
         foreach (var request in requests.Where(Native.transcribe_backend_available))
         {
@@ -205,7 +261,7 @@ internal sealed class ParakeetModel : ISpeechModel
                 return loaded;
             }
 
-            last = new TranscribeCppException($"transcribe.cpp couldn't load {Path.GetFileName(modelPath)}: {Native.Describe(status)}.");
+            last = new TranscribeCppException($"transcribe.cpp couldn't load {Path.GetFileName(ModelPath)}: {Native.Describe(status)}.", status);
             logger.LogWarning("{Message} Trying the next backend.", last.Message);
         }
 
@@ -269,6 +325,13 @@ internal sealed class ParakeetModel : ISpeechModel
             {
                 segments.Add(new TimedSpan(segment.StartMs, segment.EndMs));
             }
+        }
+
+        // An early stop in a recording of several segments leaves rows whose times the guard
+        // can't place with certainty, so it fails instead of cutting at a wrong time.
+        if (stoppedEarly && segments.Count > 1)
+        {
+            throw new TranscribeCppException($"transcribe.cpp stopped the decode early ({Native.Describe(status)}) in a recording it cut into {segments.Count} segments.", status);
         }
 
         return new DecodeRun(words, tokens, segments, stoppedEarly);

@@ -210,6 +210,11 @@ internal sealed class ModelStore : IDisposable
                 {
                     throw new InvalidDataException($"The SHA-256 of {download.FileName} is {actualHash}, but Hugging Face lists {expectedHash}.");
                 }
+
+                if (ModelCatalog.GetPinnedSha256(download.FileName) is { } pinned && actualHash != pinned)
+                {
+                    throw new InvalidDataException($"The SHA-256 of {download.FileName} is {actualHash}, but this version of the server expects {pinned}.");
+                }
             }
 
             File.Move(partial, path, overwrite: true);

@@ -45,70 +45,98 @@ internal static class LoopGuard
     /// cut there gave a repair that ended in invented words. So the phrase decides only when
     /// nothing else fires.
     /// </remarks>
-    public static LoopSignal? Detect(DecodeRun run)
+    public static LoopSignal? Detect(DecodeRun run) => Detect(run, 0);
+
+    /// <summary>Transcribes a stretch of audio, transcribing again any part where the decoder got stuck.</summary>
+    /// <param name="decode">Decodes the audio from a start to an end, in milliseconds, and returns times relative to that start.</param>
+    /// <param name="durationMs">The length of the audio, in milliseconds.</param>
+    /// <param name="onSignal">Receives each signal, and whether the guard transcribes that stretch again (<see langword="true"/>) or keeps only the words before it.</param>
+    /// <returns>The words with times from the start of the audio, each with a group that is unique per decoded segment.</returns>
+    public static IReadOnlyList<TimedWord> Transcribe(Func<long, long, DecodeRun> decode, long durationMs, Action<LoopSignal, bool>? onSignal = null)
     {
-        var tokens = run.TokenStartsMs;
+        var words = new List<TimedWord>();
+        var groups = 0;
+        Transcribe(decode, 0, durationMs, 0, words, ref groups, onSignal);
+        return words;
+    }
+
+    private static LoopSignal? Detect(DecodeRun run, int firstSegment)
+    {
+        // Only the segments from firstSegment on: the ones before it were handled already.
+        var fromMs = firstSegment > 0 && firstSegment < run.Segments.Count ? run.Segments[firstSegment].StartMs : long.MinValue;
+        var tokens = run.TokenStartsMs.Where(start => start >= fromMs).ToList();
         for (var i = 0; i + StuckTokens < tokens.Count; i++)
         {
             if (tokens[i + StuckTokens] - tokens[i] < StuckWindowMs)
             {
-                return new LoopSignal(tokens[i], $"{StuckTokens} tokens in under {StuckWindowMs / 1000} s");
+                // The window can start up to 2 s before the pile-up, even in the previous segment,
+                // so the pile-up itself names the stuck segment.
+                return new LoopSignal(tokens[i], $"{StuckTokens} tokens in under {StuckWindowMs / 1000} s") { PileUpMs = tokens[i + StuckTokens] };
             }
         }
 
+        // transcribe.cpp 0.4.1 doesn't stop Parakeet's decode early (its repetition guard covers
+        // other families), but the status is handled in case a later version does.
         if (run.StoppedEarly)
         {
             var at = tokens.Count > 0 ? tokens[^1] : run.Words.Count > 0 ? run.Words[^1].StartMs : 0;
             return new LoopSignal(at, "the library stopped the decode early");
         }
 
-        return FindRepeatedPhrase(run.Words);
+        return FindRepeatedPhrase([.. run.Words.Where(word => word.Group >= firstSegment)]);
     }
 
-    /// <summary>Transcribes a stretch of audio, transcribing again any part where the decoder got stuck.</summary>
-    /// <param name="decode">Decodes the audio from a start to an end, in milliseconds, and returns times relative to that start.</param>
-    /// <param name="durationMs">The length of the audio, in milliseconds.</param>
-    /// <param name="onRepair">Receives each signal that started a repair.</param>
-    /// <returns>The words with times from the start of the audio, each with a group that is unique per decoded segment.</returns>
-    public static IReadOnlyList<TimedWord> Transcribe(Func<long, long, DecodeRun> decode, long durationMs, Action<LoopSignal>? onRepair = null)
-    {
-        var words = new List<TimedWord>();
-        var groups = 0;
-        Transcribe(decode, 0, durationMs, 0, words, ref groups, onRepair);
-        return words;
-    }
-
-    private static void Transcribe(Func<long, long, DecodeRun> decode, long startMs, long endMs, int depth, List<TimedWord> output, ref int groups, Action<LoopSignal>? onRepair)
+    private static void Transcribe(Func<long, long, DecodeRun> decode, long startMs, long endMs, int depth, List<TimedWord> output, ref int groups, Action<LoopSignal, bool>? onSignal)
     {
         var run = decode(startMs, endMs).Shift(startMs);
-        var signal = depth < MaxDepth ? Detect(run) : null;
+        Repair(decode, run, 0, startMs, endMs, depth, output, ref groups, onSignal);
+    }
+
+    // Handles the segments of a run from firstSegment on: it keeps the ones before a loop,
+    // transcribes the looping one again in two parts, and then looks at the rest for another loop.
+    private static void Repair(Func<long, long, DecodeRun> decode, DecodeRun run, int firstSegment, long startMs, long endMs, int depth, List<TimedWord> output, ref int groups, Action<LoopSignal, bool>? onSignal)
+    {
+        var signal = Detect(run, firstSegment);
         if (signal is null)
         {
-            Append(run.Words, output, ref groups);
+            Append(run.Words.Where(word => word.Group >= firstSegment), output, ref groups);
             return;
         }
 
-        onRepair?.Invoke(signal);
-        var at = Math.Clamp(signal.AtMs, startMs, endMs);
-        var stuck = run.Segments.Count == 0 ? -1 : Math.Max(0, run.Segments.FindLastIndex(segment => segment.StartMs <= at));
-        var pieceStart = stuck < 0 ? startMs : Math.Max(startMs, run.Segments[stuck].StartMs - LeadMs);
+        var segments = run.Segments;
+        var stuck = segments.Count == 0 ? -1 : Math.Max(firstSegment, segments.FindLastIndex(segment => segment.StartMs <= signal.PileUpMs));
 
-        // The decoder never reached the rest of the stuck segment, so its end comes from the next
-        // segment or the end of the audio, not from the words.
-        var pieceEnd = stuck >= 0 && stuck + 1 < run.Segments.Count ? run.Segments[stuck + 1].StartMs : endMs;
+        // The decoder never reached the rest of the stuck segment, so the segment ends where the
+        // next one starts, or at the end of the stretch, not where its words end.
+        var segmentStart = stuck < 0 ? startMs : Math.Max(startMs, segments[stuck].StartMs);
+        var segmentEnd = stuck >= 0 && stuck + 1 < segments.Count ? segments[stuck + 1].StartMs : endMs;
+        var at = Math.Clamp(signal.AtMs, segmentStart, segmentEnd);
 
-        Append(run.Words.Where(word => word.Group < stuck), output, ref groups);
-        foreach (var (first, last) in new[] { (pieceStart, at), (at, pieceEnd) })
+        // The lead keeps the first word whole, without reaching back into the previous segment.
+        var previousEnd = stuck > 0 ? segments[stuck - 1].EndMs : startMs;
+        var pieceStart = Math.Max(Math.Max(startMs, previousEnd), segmentStart - LeadMs);
+        var pieces = new[] { (First: pieceStart, Last: at), (First: at, Last: segmentEnd) }.Where(piece => piece.Last - piece.First >= MinPieceMs).ToList();
+
+        // A piece that is the whole stretch again would decode the same audio the same way.
+        var repairable = depth < MaxDepth && pieces.All(piece => piece.First != startMs || piece.Last != endMs);
+        onSignal?.Invoke(signal, repairable);
+
+        Append(run.Words.Where(word => word.Group >= firstSegment && word.Group < stuck), output, ref groups);
+        if (repairable)
         {
-            if (last - first >= MinPieceMs)
+            foreach (var (first, last) in pieces)
             {
-                Transcribe(decode, first, last, depth + 1, output, ref groups, onRepair);
+                Transcribe(decode, first, last, depth + 1, output, ref groups, onSignal);
             }
         }
-
-        if (stuck >= 0)
+        else
         {
-            Append(run.Words.Where(word => word.Group > stuck), output, ref groups);
+            Append(run.Words.Where(word => word.Group >= firstSegment && (stuck < 0 || word.Group == stuck) && word.StartMs < at), output, ref groups);
+        }
+
+        if (stuck >= 0 && stuck + 1 < segments.Count)
+        {
+            Repair(decode, run, stuck + 1, startMs, endMs, depth, output, ref groups, onSignal);
         }
     }
 
@@ -194,6 +222,10 @@ internal sealed record DecodeRun(IReadOnlyList<TimedWord> Words, IReadOnlyList<l
 }
 
 /// <summary>Describes where and why the decoder got stuck.</summary>
-/// <param name="AtMs">The time where it got stuck, in milliseconds.</param>
+/// <param name="AtMs">The time to cut at, in milliseconds: where the stretch that shows the loop starts.</param>
 /// <param name="Reason">What showed it.</param>
-internal sealed record LoopSignal(long AtMs, string Reason);
+internal sealed record LoopSignal(long AtMs, string Reason)
+{
+    /// <summary>Gets a time inside the loop itself, which names the segment that got stuck.</summary>
+    public long PileUpMs { get; init; } = AtMs;
+}

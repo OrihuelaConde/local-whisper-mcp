@@ -129,6 +129,31 @@ jobs:
           & ($IsWindows ? 'python' : 'python3') scripts/mcp_smoke.py $server calls.json "ask not what your country can do for you"
           if ($LASTEXITCODE -ne 0) { exit 1 }
 
+      # One server process, default runtime: Whisper, then Parakeet, then Whisper again. Switching
+      # releases each model before loading the next, and two ggml builds share the process.
+      - name: Switch between Whisper and Parakeet in one server process
+        env:
+          LOCAL_WHISPER_MODELS_DIR: ${{ github.workspace }}/switch-models
+          LOCAL_WHISPER_MODEL: tiny
+          LOCAL_WHISPER_ALLOWED_ROOTS: ${{ github.workspace }}/audio
+        run: |
+          New-Item -ItemType Directory -Force $env:LOCAL_WHISPER_MODELS_DIR | Out-Null
+          # A hard link brings in the cached Parakeet model without a second copy.
+          New-Item -ItemType HardLink -Path (Join-Path $env:LOCAL_WHISPER_MODELS_DIR 'parakeet-ultra-Q8_0.gguf') -Target (Resolve-Path parakeet-model/parakeet-ultra-Q8_0.gguf).Path | Out-Null
+          $server = Resolve-Path (Join-Path out ($IsWindows ? 'local-whisper-mcp.exe' : 'local-whisper-mcp'))
+          & $server download tiny
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          $audio = Join-Path $env:LOCAL_WHISPER_ALLOWED_ROOTS 'jfk.wav'
+          @(
+            @{ name = 'transcribe'; arguments = @{ path = $audio; language = 'en' } }
+            @{ name = 'transcribe'; arguments = @{ path = $audio; model = 'parakeet-ultra'; language = 'en' } }
+            @{ name = 'status' }
+            @{ name = 'transcribe'; arguments = @{ path = $audio; language = 'en' } }
+            @{ name = 'status' }
+          ) | ConvertTo-Json -Depth 5 | Set-Content calls.json
+          & ($IsWindows ? 'python' : 'python3') scripts/mcp_smoke.py $server calls.json "ask not what your country can do for you"
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
       - name: Pack the Claude Desktop extension and check its transcribe.cpp libraries
         run: |
           pwsh packaging/mcpb/pack.ps1 -Rid ${{ matrix.rid }} -PublishDir out -OutDir dist
