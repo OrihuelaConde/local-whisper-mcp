@@ -81,8 +81,8 @@ internal sealed class TranscriptionTools
         {
             // Checked before the download, which would fetch 740 MB that this build can't use.
             throw new McpException(
-                $"This build of Local Whisper can't run {modelName} on {TranscribeCpp.TranscribeCppLibrary.RuntimeIdentifier}: it includes transcribe.cpp only for Windows x64. " +
-                $"Use a Whisper model, such as {ServerSettings.DefaultModelName}.");
+                $"Local Whisper can't run {modelName} here: the transcribe.cpp libraries for {TranscribeCpp.TranscribeCppLibrary.RuntimeIdentifier} aren't in {TranscribeCpp.TranscribeCppLibrary.Directory}. " +
+                $"Reinstall Local Whisper from the latest release for this system, or use a Whisper model, such as {ServerSettings.DefaultModelName}.");
         }
 
         if (PromptFor(engine, prompt) is null && prompt is not null)

@@ -1,6 +1,7 @@
 # Builds the release assets when a version tag (v1.2.3) is pushed: a Native AOT archive and a
 # Claude Desktop extension (.mcpb) per RID. Each build runs the tests and transcribes a sample
-# through MCP first. The release is created as a draft to review and publish by hand.
+# through MCP first, with Whisper and with Parakeet-ultra on the CPU. The release is created as a
+# draft to review and publish by hand.
 name: release
 
 on:
@@ -81,6 +82,45 @@ jobs:
           @(
             @{ name = 'status' }
             @{ name = 'transcribe'; arguments = @{ path = $audio; language = 'en' } }
+          ) | ConvertTo-Json -Depth 5 | Set-Content calls.json
+          & ($IsWindows ? 'python' : 'python3') scripts/mcp_smoke.py $server calls.json "ask not what your country can do for you"
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      # The key is the model file's SHA-256, so the cache never serves another file under that name.
+      - name: Restore the Parakeet model from the cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/parakeet-model
+          key: parakeet-ultra-Q8_0-007a59761e9258779f189df396b50d12b83bb5b79e66df4b955c230d2f2a0a59
+
+      - name: Download the Parakeet model with the server
+        env:
+          LOCAL_WHISPER_MODELS_DIR: ${{ runner.temp }}/parakeet-model
+        run: |
+          $server = Resolve-Path (Join-Path out ($IsWindows ? 'local-whisper-mcp.exe' : 'local-whisper-mcp'))
+          & $server download parakeet-ultra
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          $hash = (Get-FileHash (Join-Path $env:LOCAL_WHISPER_MODELS_DIR 'parakeet-ultra-Q8_0.gguf') -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($hash -ne '007a59761e9258779f189df396b50d12b83bb5b79e66df4b955c230d2f2a0a59') { Write-Error "The Parakeet model's SHA-256 is $hash."; exit 1 }
+
+      - name: Run the tests that need the Parakeet model
+        env:
+          LOCAL_WHISPER_TEST_PARAKEET: ${{ runner.temp }}/parakeet-model/parakeet-ultra-Q8_0.gguf
+        run: dotnet test --project tests/LocalWhisperMcp.Tests
+
+      - name: Transcribe with Parakeet on the CPU through the MCP server
+        env:
+          LOCAL_WHISPER_MODELS_DIR: ${{ runner.temp }}/parakeet-model
+          LOCAL_WHISPER_USE_GPU: "false"
+          LOCAL_WHISPER_AUTO_DOWNLOAD: "false"
+          LOCAL_WHISPER_ALLOWED_ROOTS: ${{ runner.temp }}/audio
+        run: |
+          $server = Resolve-Path (Join-Path out ($IsWindows ? 'local-whisper-mcp.exe' : 'local-whisper-mcp'))
+          $audio = Join-Path $env:LOCAL_WHISPER_ALLOWED_ROOTS 'jfk.wav'
+          @(
+            @{ name = 'transcribe'; arguments = @{ path = $audio; model = 'parakeet-ultra'; format = 'srt' } }
+            @{ name = 'transcribe'; arguments = @{ path = $audio; model = 'parakeet-ultra'; language = 'en' } }
+            @{ name = 'status' }
           ) | ConvertTo-Json -Depth 5 | Set-Content calls.json
           & ($IsWindows ? 'python' : 'python3') scripts/mcp_smoke.py $server calls.json "ask not what your country can do for you"
           if ($LASTEXITCODE -ne 0) { exit 1 }

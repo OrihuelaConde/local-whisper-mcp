@@ -173,16 +173,17 @@ internal sealed class ParakeetModel : ISpeechModel
     private unsafe nint Load(string modelPath, string runtime)
     {
         // Every preference ends with the CPU, as Whisper's runtimes do. AUTO picks the best GPU the
-        // library registered: Vulkan here, Metal on a Mac.
+        // library registered: Vulkan on Windows and Linux, Metal on an Apple silicon Mac. A Mac has
+        // no Vulkan, so a request for it, or for CUDA, gets the Mac's own GPU instead.
         int[] requests = runtime switch
         {
             "cpu" => [Native.BackendCpu],
-            "vulkan" or "cuda" => [Native.BackendVulkan, Native.BackendCpu],
+            "vulkan" or "cuda" when !OperatingSystem.IsMacOS() => [Native.BackendVulkan, Native.BackendCpu],
             _ => [Native.BackendAuto, Native.BackendCpu],
         };
         if (runtime == "cuda")
         {
-            logger.LogWarning("Parakeet models don't run on CUDA in this version; using Vulkan, or the CPU if Vulkan isn't available.");
+            logger.LogWarning("Parakeet models don't run on CUDA in this version; using {Backend}, or the CPU if it isn't available.", OperatingSystem.IsMacOS() ? "Metal" : "Vulkan");
         }
 
         var path = TranscribeCppLibrary.Utf8(modelPath);
