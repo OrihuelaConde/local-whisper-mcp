@@ -31,6 +31,8 @@ version's section as its release notes.
   transcribe the sample with it on the CPU on every platform.
 - The skill tells Claude when `parakeet-ultra` fits: no GPU, long or noisy audio, a European
   language, and no names to spell.
+- The build requires the .NET SDK 10.0.403 or later, whose Native AOT compiler, 10.0.14, fixes
+  GHSA-p3jp-9v83-76w9. An older SDK compiled the server with an affected version.
 
 ## [1.1.0] - 2026-11-04
 
