@@ -44,23 +44,26 @@ internal sealed class ModelStore : IDisposable
     /// <returns>The full path.</returns>
     public string GetPath(string fileName) => Path.Combine(ModelsDirectory, fileName);
 
-    /// <summary>Lists the Whisper models in the models directory.</summary>
+    /// <summary>Lists the speech models in the models directory.</summary>
     /// <returns>The model names, sorted.</returns>
     public IReadOnlyList<string> GetInstalledModels() => [.. GetInstalledModelSizes().Select(model => model.Name)];
 
-    /// <summary>Lists the Whisper models in the models directory with their sizes.</summary>
+    /// <summary>Lists the speech models in the models directory with their sizes and engines.</summary>
     /// <returns>The models, sorted by name.</returns>
     public IReadOnlyList<InstalledModel> GetInstalledModelSizes() =>
         [.. GetModelFiles()
             .Select(file => (Name: ModelCatalog.GetModelName(file.Name), file.Length))
             .Where(model => model.Name is not null)
-            .Select(model => new InstalledModel(model.Name!, Math.Round(model.Length / 1e6)))
+            .Select(model => new InstalledModel(model.Name!, Math.Round(model.Length / 1e6), ModelCatalog.GetEngineName(ModelCatalog.GetEngine(model.Name!))))
             .OrderBy(model => model.Name, StringComparer.Ordinal)];
 
-    /// <summary>Lists every model file in the models directory: the Whisper models and the VAD model.</summary>
+    /// <summary>Lists every model file in the models directory: the Whisper models, the catalog's other models, and the VAD model.</summary>
     /// <returns>The files.</returns>
     public IReadOnlyList<FileInfo> GetModelFiles() =>
-        Directory.Exists(ModelsDirectory) ? [.. new DirectoryInfo(ModelsDirectory).EnumerateFiles("ggml-*.bin")] : [];
+        Directory.Exists(ModelsDirectory)
+            ? [.. new DirectoryInfo(ModelsDirectory).EnumerateFiles("ggml-*.bin"),
+               .. ModelCatalog.OtherModels.Select(model => new FileInfo(GetPath(model.FileName))).Where(file => file.Exists)]
+            : [];
 
     /// <summary>Deletes model files, except those still downloading.</summary>
     /// <param name="fileNames">The model file names.</param>
@@ -207,6 +210,11 @@ internal sealed class ModelStore : IDisposable
                 {
                     throw new InvalidDataException($"The SHA-256 of {download.FileName} is {actualHash}, but Hugging Face lists {expectedHash}.");
                 }
+
+                if (ModelCatalog.GetPinnedSha256(download.FileName) is { } pinned && actualHash != pinned)
+                {
+                    throw new InvalidDataException($"The SHA-256 of {download.FileName} is {actualHash}, but this version of the server expects {pinned}.");
+                }
             }
 
             File.Move(partial, path, overwrite: true);
@@ -317,7 +325,8 @@ internal sealed class ModelDownload
 /// <summary>Describes a model in the models directory.</summary>
 /// <param name="Name">The model name.</param>
 /// <param name="Megabytes">The size of the file, in megabytes.</param>
-internal sealed record InstalledModel(string Name, double Megabytes);
+/// <param name="Engine">The engine that runs it: <c>whisper.cpp</c> or <c>transcribe.cpp</c>.</param>
+internal sealed record InstalledModel(string Name, double Megabytes, string Engine);
 
 /// <summary>Describes the outcome of deleting one model file.</summary>
 /// <param name="FileName">The model file name.</param>

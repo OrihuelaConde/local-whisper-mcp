@@ -68,7 +68,16 @@ The path is done when the user has the steps for their case.
 - `format`: `txt` by default, `srt` for subtitles, and `json` for segments with start and end times in seconds.
 - `hints`: pass it only when `transcribe` lists a `hints` parameter; Local Whisper has it from version 1.1.0. Names that are likely to be said in this audio, spelled the way the transcript should write them, such as people, places, companies, or products that the user, the conversation, or the file name mentioned. Up to about eight, the ones most likely to be misspelled first, within 120 characters. Omit it when you don't know any: names that the audio doesn't contain can make a short recording slightly worse. Don't pass instructions or sample sentences; Whisper reads the hints as text that came before the audio.
 - The user gave names but `transcribe` has no `hints` parameter: transcribe without them, and after the transcript say once that Local Whisper 1.1.0 or later can take those names to spell them right, from the install table, https://github.com/OrihuelaConde/local-whisper-mcp#install.
-- `vad` and `model`: keep the defaults unless the user asks otherwise.
+- `model`: decide it from the `status` reply, checking these cases in order and taking the first that matches:
+  1. No `loadedEngine` field in `status`: the server is older than 1.2.0 and runs only Whisper. Omit `model` unless the user names one.
+  2. The user asks for Parakeet: pass `model: "parakeet-ultra"`.
+  3. The audio is in a language outside Parakeet's 25 European ones, or you pass `hints`: omit `model`, so the server uses its default Whisper model. Parakeet ignores hints. When the user names no language for the audio, take the language they write in.
+  4. `device` is `CPU`, or the user says the computer has no GPU: pass `model: "parakeet-ultra"`, even for a short note.
+  5. The recording is long (several minutes or more, such as a meeting, a class, or an interview) or has background noise (a street, a café, a car): pass `model: "parakeet-ultra"`.
+  6. Otherwise: omit `model`.
+
+  Parakeet's languages include English, Spanish, French, German, Italian, Portuguese, Dutch, Polish, Russian, and Ukrainian. It's several times faster than Whisper and makes fewer errors on long or noisy recordings. Its first use downloads about 740 MB.
+- `vad`: keep the default unless the user asks otherwise.
 - A long transcript that repeats one phrase many times: call `transcribe` again without `hints`.
 - A reply that the model is still downloading comes only on first use: tell the user, wait about a minute, and call `transcribe` again. `status` shows the download's progress.
 - A reply that the file is outside the allowed folders means: copy it into the inbox and call again.

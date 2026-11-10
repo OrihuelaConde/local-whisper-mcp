@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "local-whisper-mcp",
   "display_name": "Local Whisper",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Transcribe audio and video with Whisper on your own computer, so recordings never leave it. Runs on the GPU or the CPU, and gives Claude plain text, SRT subtitles, or JSON with timestamps.",
   "author": {
     "name": "José Luis Orihuela Conde",
@@ -67,7 +67,7 @@
     "model": {
       "type": "string",
       "title": "Whisper model",
-      "description": "Keep \"large-v3-turbo-q8_0\", the best balance of speed and accuracy. Use \"large-v3-turbo-q5_0\" if the GPU is short of memory, or \"base\" on a computer without a GPU. You can also enter any model listed at https://huggingface.co/ggerganov/whisper.cpp/tree/main, by name or by file name. The server downloads it the first time it's used.",
+      "description": "Keep \"large-v3-turbo-q8_0\", the best balance of speed and accuracy. Use \"large-v3-turbo-q5_0\" if the GPU is short of memory, or \"base\" on a computer without a GPU. You can also enter any model listed at https://huggingface.co/ggerganov/whisper.cpp/tree/main, by name or by file name. \"parakeet-ultra\" runs Parakeet instead: several times faster, above all without a GPU, and better on long or noisy recordings, but only for 25 European languages and without hints. The server downloads the model the first time it's used.",
       "required": false,
       "default": "large-v3-turbo-q8_0"
     },

@@ -37,6 +37,19 @@ public sealed class ModelStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task A_catalog_model_whose_hash_isnt_the_pinned_one_leaves_no_file()
+    {
+        // Hugging Face's own hash matches the file, but the file isn't the one the catalog pins.
+        var handler = new FakeHuggingFace(Content, Convert.ToHexStringLower(SHA256.HashData(Content)));
+        using var store = new ModelStore(directory, NullLogger.Instance, handler);
+
+        var exception = await Assert.ThrowsAsync<InvalidDataException>(() => store.Ensure("parakeet-ultra-Q8_0.gguf").Completion);
+
+        Assert.Contains("this version of the server expects", exception.Message);
+        Assert.Empty(Directory.GetFiles(directory));
+    }
+
+    [Fact]
     public async Task A_failed_download_is_retried_on_the_next_call()
     {
         var handler = new FakeHuggingFace(Content, new string('0', 64));

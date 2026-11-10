@@ -14,7 +14,7 @@ internal static class ServerInfo
 
     /// <summary>Gets the instructions that tell the client what the server is for.</summary>
     public const string Instructions =
-        "Transcribes audio files with Whisper on this computer; the audio never leaves it. " +
+        "Transcribes audio files with Whisper, or Parakeet, on this computer; the audio never leaves it. " +
         "Call transcribe with the absolute path of an audio file in the inbox folder or in one of the allowed folders that status lists. " +
         "Copy audio that isn't on this computer yet, such as chat attachments, into the inbox; the server deletes it after transcribing it. " +
         "The first call downloads the default model if it's missing, which can take a few minutes.";

@@ -24,6 +24,11 @@ https://github.com/user-attachments/assets/dc71b178-b60d-457e-8f33-732696671c02
   RTX 3080 transcribes a minute of audio in about one second.
 - Downloads the model the first time it's needed, checks it against the hash that Hugging Face
   publishes, and frees its memory, including GPU memory, after 5 minutes without use.
+- Offers a second engine, [Parakeet-ultra](https://huggingface.co/handy-computer/parakeet-ultra-gguf)
+  on transcribe.cpp, for 25 European languages. It's several times faster than the default Whisper
+  model, above all on a computer without a GPU, and makes fewer errors on long and noisy
+  recordings. Choose it with the model name `parakeet-ultra`. Version 1.1.0 and earlier don't
+  have it.
 - Returns plain text, SubRip subtitles (SRT), or JSON segments with timestamps.
 - Skips silence with voice activity detection on clean recordings, which keeps timestamps exact,
   and transcribes everything when background noise could hide quiet speech.
@@ -164,7 +169,7 @@ clients, set them as environment variables:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `LOCAL_WHISPER_MODEL` | `large-v3-turbo-q8_0` | Any model from [whisper.cpp's model list](https://huggingface.co/ggerganov/whisper.cpp/tree/main), by name (`base`) or file name (`ggml-base.bin`). |
+| `LOCAL_WHISPER_MODEL` | `large-v3-turbo-q8_0` | Any model from [whisper.cpp's model list](https://huggingface.co/ggerganov/whisper.cpp/tree/main), by name (`base`) or file name (`ggml-base.bin`). `parakeet-ultra` runs [Parakeet-ultra](https://huggingface.co/handy-computer/parakeet-ultra-gguf) on transcribe.cpp instead: faster, above all without a GPU, but only for 25 European languages and without hints. |
 | `LOCAL_WHISPER_LANGUAGE` | `auto` | A language code such as `en` or `es`, or `auto` to detect it. |
 | `LOCAL_WHISPER_USE_GPU` | `true` | `false` runs only on the CPU. |
 | `LOCAL_WHISPER_RUNTIME` | `auto` | `auto`, `cpu`, or `vulkan`. A runtime that can't load falls back to the CPU. |
@@ -198,8 +203,10 @@ local-whisper-mcp download large-v3-turbo-q8_0
 - Windows 10 or later (x64), macOS (Apple Silicon or Intel), or Linux (x64 or arm64).
 - On x64, a processor with AVX2.
 - For the GPU: a Vulkan driver on Windows and Linux x64, or Apple Silicon for Metal. Without one,
-  the server uses the CPU.
-- On Linux, the OpenMP runtime: `sudo apt install libgomp1` on Debian and Ubuntu.
+  the server uses the CPU. Parakeet-ultra also uses Vulkan on Linux arm64, and runs on the CPU on
+  a Mac with an Intel processor.
+- On Linux, the OpenMP runtime: `sudo apt install libgomp1` on Debian and Ubuntu. Parakeet-ultra
+  needs glibc 2.28 or later, which Ubuntu 18.10, Debian 10, and later releases have.
 - Optional: ffmpeg, for formats other than WAV, Ogg Opus, and MP3.
 
 The release files aren't signed. On macOS, if Gatekeeper blocks the executable from the archive,
@@ -211,6 +218,8 @@ allow it with `xattr -dr com.apple.quarantine FOLDER`, where `FOLDER` is the ext
   the default one. Claude can follow the download with the `status` tool.
 - **The first transcription on a Mac with Apple Silicon takes about 15 seconds more.** macOS
   compiles the GPU shaders once per computer.
+- **The first transcription with `parakeet-ultra` on a GPU takes about 10 seconds more.** The
+  driver compiles its shaders once, and later transcriptions skip that step.
 - **Parts of a recording are missing.** Ask Claude to transcribe it again with `vad` set to
   `false`.
 - **A long recording repeats a phrase over and over in the transcript.** If Claude passed
@@ -239,6 +248,10 @@ pwsh packaging/mcpb/pack.ps1 -Rid win-x64 -PublishDir out
 Replace `win-x64` with the runtime identifier of your system: `osx-arm64`, `osx-x64`, `linux-x64`,
 or `linux-arm64`. Native AOT builds only for the system it runs on.
 
+The build downloads transcribe.cpp's libraries for that system from a pinned wheel on PyPI, once
+per version, and checks the wheel's SHA-256. To build without a network connection, add
+`-p:TranscribeCppSkip=true`; that build can't run Parakeet models.
+
 ## Design notes
 
 The measurements behind the server's design are in the repository:
@@ -246,8 +259,11 @@ The measurements behind the server's design are in the repository:
 - [Proof-of-concept results](poc/RESULTS.md): why the server is a C# Native AOT executable with
   Whisper.net, and how the default model, the GPU backend, and the audio decoders were chosen.
 - [Gemma 4 as an alternative engine](poc/GEMMA-RESULTS.md): Gemma 4 E2B, E4B, and 12B compared
-  with Whisper on public test sets with reference transcripts. Whisper stays the only engine: it
-  makes fewer errors, and on computers without a GPU the Whisper `small` model matches Gemma 4.
+  with Whisper on public test sets with reference transcripts. Gemma 4 didn't become an engine:
+  Whisper makes fewer errors, and on computers without a GPU the Whisper `small` model matches it.
+- [Parakeet-ultra and Cohere Transcribe](https://github.com/OrihuelaConde/local-whisper-mcp/blob/poc/transcribe-cpp-evaluation/poc/TRANSCRIBE-CPP-RESULTS.md):
+  the measurements behind the second engine, on short, long, and noisy recordings, and the
+  repetition loops that its guard repairs.
 - [Hints](poc/HINTS-RESULTS.md): what passing the names in a recording as a Whisper prompt does to
   the transcript, and why the list is limited to 120 characters.
 

@@ -1,6 +1,7 @@
 # Builds the release assets when a version tag (v1.2.3) is pushed: a Native AOT archive and a
 # Claude Desktop extension (.mcpb) per RID. Each build runs the tests and transcribes a sample
-# through MCP first. The release is created as a draft to review and publish by hand.
+# through MCP first, with Whisper and with Parakeet-ultra on the CPU. The release is created as a
+# draft to review and publish by hand.
 name: release
 
 on:
@@ -85,6 +86,55 @@ jobs:
           & ($IsWindows ? 'python' : 'python3') scripts/mcp_smoke.py $server calls.json "ask not what your country can do for you"
           if ($LASTEXITCODE -ne 0) { exit 1 }
 
+      # A cache hit skips the download, so this checks that the catalog's address still serves the
+      # pinned file, the way a new installation would fetch it.
+      - name: Check the Parakeet model's address
+        run: |
+          $response = Invoke-WebRequest -Method Head -MaximumRedirection 0 -SkipHttpErrorCheck -ErrorAction SilentlyContinue 'https://huggingface.co/handy-computer/parakeet-ultra-gguf/resolve/a1539be1b849ea7463b88343e5277b373d0c4ea9/parakeet-ultra-Q8_0.gguf'
+          $hash = "$($response.Headers['X-Linked-ETag'])".Trim('"')
+          if ([int]$response.StatusCode -ne 302 -or $hash -ne '007a59761e9258779f189df396b50d12b83bb5b79e66df4b955c230d2f2a0a59') { Write-Error "The model's address answered $($response.StatusCode) with hash '$hash'."; exit 1 }
+
+      # A tag run restores only caches saved on the default branch, so the first release after the
+      # model changes downloads it.
+      # The key is the model file's SHA-256, so the cache never serves another file under that name.
+      - name: Restore the Parakeet model from the cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/parakeet-model
+          key: parakeet-ultra-Q8_0-007a59761e9258779f189df396b50d12b83bb5b79e66df4b955c230d2f2a0a59
+
+      - name: Download the Parakeet model with the server
+        env:
+          LOCAL_WHISPER_MODELS_DIR: ${{ github.workspace }}/parakeet-model
+        run: |
+          $server = Resolve-Path (Join-Path out ($IsWindows ? 'local-whisper-mcp.exe' : 'local-whisper-mcp'))
+          & $server download parakeet-ultra
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          $hash = (Get-FileHash (Join-Path $env:LOCAL_WHISPER_MODELS_DIR 'parakeet-ultra-Q8_0.gguf') -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($hash -ne '007a59761e9258779f189df396b50d12b83bb5b79e66df4b955c230d2f2a0a59') { Write-Error "The Parakeet model's SHA-256 is $hash."; exit 1 }
+
+      - name: Run the tests that need the Parakeet model
+        env:
+          LOCAL_WHISPER_TEST_PARAKEET: ${{ github.workspace }}/parakeet-model/parakeet-ultra-Q8_0.gguf
+        run: dotnet test --project tests/LocalWhisperMcp.Tests
+
+      - name: Transcribe with Parakeet on the CPU through the MCP server
+        env:
+          LOCAL_WHISPER_MODELS_DIR: ${{ github.workspace }}/parakeet-model
+          LOCAL_WHISPER_USE_GPU: "false"
+          LOCAL_WHISPER_AUTO_DOWNLOAD: "false"
+          LOCAL_WHISPER_ALLOWED_ROOTS: ${{ runner.temp }}/audio
+        run: |
+          $server = Resolve-Path (Join-Path out ($IsWindows ? 'local-whisper-mcp.exe' : 'local-whisper-mcp'))
+          $audio = Join-Path $env:LOCAL_WHISPER_ALLOWED_ROOTS 'jfk.wav'
+          @(
+            @{ name = 'transcribe'; arguments = @{ path = $audio; model = 'parakeet-ultra'; format = 'srt' } }
+            @{ name = 'transcribe'; arguments = @{ path = $audio; model = 'parakeet-ultra'; language = 'en' } }
+            @{ name = 'status' }
+          ) | ConvertTo-Json -Depth 5 | Set-Content calls.json
+          & ($IsWindows ? 'python' : 'python3') scripts/mcp_smoke.py $server calls.json "ask not what your country can do for you"
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
       - name: Package the release assets
         run: |
           $version = '${{ github.ref_name }}'.TrimStart('v')
@@ -100,6 +150,15 @@ jobs:
             tar -czf "dist/$name.tar.gz" -C out .
           }
           pwsh packaging/mcpb/pack.ps1 -Rid ${{ matrix.rid }} -PublishDir out -OutDir dist
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          $bundle = Get-ChildItem dist -Filter *.mcpb | Select-Object -First 1
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $zip = [System.IO.Compression.ZipFile]::OpenRead($bundle.FullName)
+          $natives = @($zip.Entries | Where-Object { $_.FullName -like 'server/runtimes/transcribe/*' -and $_.Name } | ForEach-Object FullName)
+          $zip.Dispose()
+          $library = $IsWindows ? 'transcribe.dll' : $IsMacOS ? 'libtranscribe.dylib' : 'libtranscribe.so'
+          if ("server/runtimes/transcribe/${{ matrix.rid }}/$library" -notin $natives) { Write-Error "$($bundle.Name) has no $library for ${{ matrix.rid }}."; exit 1 }
+          if ($natives | Where-Object { $_ -notlike "server/runtimes/transcribe/${{ matrix.rid }}/*" }) { Write-Error "$($bundle.Name) has transcribe.cpp files of another platform."; exit 1 }
           Get-ChildItem dist | Select-Object Name, Length | Format-Table -AutoSize
 
       - uses: actions/upload-artifact@v4

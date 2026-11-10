@@ -6,7 +6,7 @@ namespace LocalWhisperMcp;
 /// <summary>Implements the <c>download</c> command, which fetches models before the first transcription.</summary>
 internal static class ModelDownloadCommand
 {
-    /// <summary>Downloads the requested Whisper models and the VAD model.</summary>
+    /// <summary>Downloads the requested models, and the VAD model if any of them is a Whisper model.</summary>
     /// <param name="names">The model names; empty for the default model.</param>
     /// <param name="settings">The server settings.</param>
     /// <param name="warnings">The settings warnings to print first.</param>
@@ -35,7 +35,13 @@ internal static class ModelDownloadCommand
 
         using var store = new ModelStore(settings.ModelsDirectory, logger);
         var exitCode = 0;
-        foreach (var fileName in models.Select(ModelCatalog.GetFileName).Append(ModelCatalog.VadModelFileName))
+        var fileNames = models.Select(ModelCatalog.GetFileName).ToList();
+        if (models.Any(name => ModelCatalog.GetEngine(name) == SpeechEngine.Whisper))
+        {
+            fileNames.Add(ModelCatalog.VadModelFileName);
+        }
+
+        foreach (var fileName in fileNames)
         {
             var download = store.Ensure(fileName);
             while (!download.Completion.IsCompleted)

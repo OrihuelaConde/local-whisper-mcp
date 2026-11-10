@@ -7,6 +7,35 @@ version's section as its release notes.
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-10
+
+### Added
+
+- Parakeet as a second engine: `model: "parakeet-ultra"` in `transcribe`, or
+  `LOCAL_WHISPER_MODEL=parakeet-ultra` to make it the default, transcribes with Moondream's
+  Parakeet-ultra through transcribe.cpp. On the proof-of-concept machine it was 3 to 6 times faster
+  than Whisper on a GPU and 11 times faster than Whisper `small` on a CPU, with fewer errors on
+  long and noisy recordings. It covers 25 European languages and ignores `hints` and `vad`. The
+  server downloads its 740 MB model on first use, with the same SHA-256 check as Whisper models.
+  It runs on Windows x64, Linux x64 and arm64 (glibc 2.28 or later), and macOS: on Vulkan, on
+  Metal on Apple Silicon, and on the CPU on Intel Macs and wherever no GPU is available.
+  Whisper stays the default. The measurements are in `poc/TRANSCRIBE-CPP-RESULTS.md` on the
+  `poc/transcribe-cpp-evaluation` branch.
+- A guard against Parakeet's repetition loops: a stretch where the decoder gets stuck is
+  transcribed again in two parts, and the log records each repair.
+- `status` lists the engine of each installed model and of the loaded one.
+
+### Changed
+
+- The build downloads transcribe.cpp's libraries for the target platform from its pinned PyPI
+  wheel, checks the wheel's SHA-256, and ships them in `runtimes/transcribe/<rid>/`.
+- The build and release workflows also download Parakeet-ultra, run the tests that need it, and
+  transcribe the sample with it on the CPU on every platform.
+- The skill tells Claude when `parakeet-ultra` fits: no GPU, long or noisy audio, a European
+  language, and no names to spell.
+- The build requires the .NET SDK 10.0.403 or later, whose Native AOT compiler, 10.0.14, fixes
+  GHSA-p3jp-9v83-76w9. An older SDK compiled the server with an affected version.
+
 ## [1.1.0] - 2026-11-04
 
 ### Added
@@ -87,6 +116,7 @@ The first public release. Versions before 1.0.0 were internal test builds.
   `LOCAL_WHISPER_ALLOWED_ROOTS`, `LOCAL_WHISPER_INBOX_DIR`, `LOCAL_WHISPER_MODELS_DIR`,
   `LOCAL_WHISPER_AUTO_DOWNLOAD`, `LOCAL_WHISPER_THREADS`, and `LOCAL_WHISPER_FFMPEG`.
 
-[Unreleased]: https://github.com/OrihuelaConde/local-whisper-mcp/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/OrihuelaConde/local-whisper-mcp/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/OrihuelaConde/local-whisper-mcp/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/OrihuelaConde/local-whisper-mcp/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/OrihuelaConde/local-whisper-mcp/releases/tag/v1.0.0

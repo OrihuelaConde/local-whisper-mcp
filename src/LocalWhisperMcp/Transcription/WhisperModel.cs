@@ -7,15 +7,15 @@ namespace LocalWhisperMcp;
 /// The model stays in memory, including GPU memory, until the instance is disposed. Calls aren't
 /// thread-safe; callers serialize access.
 /// </remarks>
-internal sealed class Transcriber : IDisposable
+internal sealed class WhisperModel : ISpeechModel
 {
     private readonly WhisperFactory factory;
     private readonly int threads;
 
-    /// <summary>Initializes a new instance of the <see cref="Transcriber"/> class and loads the model.</summary>
+    /// <summary>Initializes a new instance of the <see cref="WhisperModel"/> class and loads the model.</summary>
     /// <param name="modelPath">The path to the ggml model file.</param>
     /// <param name="threads">The number of CPU threads to use.</param>
-    public Transcriber(string modelPath, int threads)
+    public WhisperModel(string modelPath, int threads)
     {
         ModelPath = modelPath;
         this.threads = threads;
@@ -25,8 +25,14 @@ internal sealed class Transcriber : IDisposable
         using var warmup = factory.CreateBuilder().Build();
     }
 
-    /// <summary>Gets the path of the loaded model.</summary>
+    /// <inheritdoc/>
     public string ModelPath { get; }
+
+    /// <inheritdoc/>
+    public SpeechEngine Engine => SpeechEngine.Whisper;
+
+    /// <inheritdoc/>
+    public string? Device => NativeRuntime.Device;
 
     /// <summary>Checks whether Whisper knows a language.</summary>
     /// <param name="language">A language code such as <c>es</c>, or <c>auto</c>.</param>
@@ -92,6 +98,18 @@ internal sealed class Transcriber : IDisposable
         }
 
         return new TranscriptionResult(segments, spans, duration, detected);
+    }
+
+    /// <inheritdoc/>
+    /// <remarks>The language list comes from the native library, which is loaded by now.</remarks>
+    public Task<TranscriptionResult> TranscribeAsync(float[] samples, SpeechRequest request, IProgress<int>? progress, CancellationToken cancellationToken)
+    {
+        if (!IsSupportedLanguage(request.Language))
+        {
+            throw new ArgumentException($"Whisper doesn't support the language '{request.Language}'. Use a code such as en or es, or auto.", "language");
+        }
+
+        return TranscribeAsync(samples, request.Language, request.VadModelPath, request.Prompt, request.CarryPrompt, progress, cancellationToken);
     }
 
     /// <inheritdoc/>

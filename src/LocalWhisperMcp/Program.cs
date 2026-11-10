@@ -12,6 +12,11 @@ using ModelContextProtocol.Protocol;
 // settings expand a list of folders only into arguments, not into environment variables.
 var warnings = new List<string>();
 var settings = ServerSettings.FromEnvironment(args is ["--allowed-roots", .. var roots] ? roots : [], warnings);
+if (ModelCatalog.GetEngine(settings.DefaultModel) == SpeechEngine.TranscribeCpp && !LocalWhisperMcp.TranscribeCpp.TranscribeCppLibrary.IsInstalled)
+{
+    warnings.Add($"LOCAL_WHISPER_MODEL '{settings.DefaultModel}' needs transcribe.cpp, which this build doesn't include for {LocalWhisperMcp.TranscribeCpp.TranscribeCppLibrary.RuntimeIdentifier}; using {ServerSettings.DefaultModelName}.");
+    settings = settings with { DefaultModel = ServerSettings.DefaultModelName };
+}
 
 switch (args)
 {
@@ -91,13 +96,14 @@ return 0;
 
 static string Usage() =>
     $"""
-    {ServerInfo.Name} {ServerInfo.Version}: an MCP server that transcribes audio locally with Whisper.
+    {ServerInfo.Name} {ServerInfo.Version}: an MCP server that transcribes audio locally with Whisper or Parakeet.
 
     Usage:
       {ServerInfo.Name} [--allowed-roots DIR...]
                                            Run the MCP server over stdio. The folders replace
                                            LOCAL_WHISPER_ALLOWED_ROOTS.
-      {ServerInfo.Name} download [MODEL]   Download a model and the VAD model. MODEL defaults to {ServerSettings.DefaultModelName}.
+      {ServerInfo.Name} download [MODEL]   Download a model, and the VAD model for a Whisper model. MODEL defaults
+                                           to {ServerSettings.DefaultModelName}; parakeet-ultra runs on transcribe.cpp.
       {ServerInfo.Name} --version          Print the version.
 
     Settings come from environment variables: LOCAL_WHISPER_MODELS_DIR, LOCAL_WHISPER_MODEL,

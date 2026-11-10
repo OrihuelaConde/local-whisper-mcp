@@ -4,8 +4,8 @@ Usage: python mcp_smoke.py SERVER CALLS_JSON [EXPECTED_TEXT] [-- SERVER_ARGS...]
 
 CALLS_JSON is a file with a list of {"name": ..., "arguments": {...}} objects. An item can
 also be {"sleep": SECONDS} to wait, or {"gpu": LABEL} to print the GPU memory in use. When
-EXPECTED_TEXT is given, the script fails unless the last transcribe call succeeds and its text contains
-EXPECTED_TEXT, ignoring case and punctuation. Arguments after -- go to the server.
+EXPECTED_TEXT is given, the script fails unless every transcribe call succeeds and the last one's text
+contains EXPECTED_TEXT, ignoring case and punctuation. Arguments after -- go to the server.
 """
 import json
 import re
@@ -62,6 +62,7 @@ print("tools:", [t["name"] for t in request("tools/list")["result"]["tools"]])
 
 last = None
 last_transcribe = None
+failed_transcribes = []
 for call in calls:
     if "sleep" in call:
         time.sleep(call["sleep"])
@@ -79,6 +80,8 @@ for call in calls:
     last = request("tools/call", {"name": call["name"], "arguments": call.get("arguments", {})})
     if call["name"] == "transcribe":
         last_transcribe = last
+        if "error" in last or last.get("result", {}).get("isError"):
+            failed_transcribes.append(call.get("arguments", {}).get("model") or "the default model")
     elapsed = time.perf_counter() - start
     print(f"call {call['name']} ({elapsed:.2f} s): {json.dumps(last.get('result', last.get('error')))[:4000]}")
 
@@ -87,6 +90,8 @@ proc.wait(timeout=30)
 print("stderr tail:", proc.stderr.read()[-3000:])
 
 if expected is not None:
+    if failed_transcribes:
+        sys.exit(f"A transcribe call failed, with {', '.join(failed_transcribes)}.")
     result = (last_transcribe or {}).get("result", {})
     text = " ".join(c.get("text", "") for c in result.get("content", []))
 
