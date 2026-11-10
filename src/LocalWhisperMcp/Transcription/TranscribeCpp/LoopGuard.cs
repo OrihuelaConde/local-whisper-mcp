@@ -71,7 +71,7 @@ internal static class LoopGuard
             {
                 // The window can start up to 2 s before the pile-up, even in the previous segment,
                 // so the pile-up itself names the stuck segment.
-                return new LoopSignal(tokens[i], $"{StuckTokens} tokens in under {StuckWindowMs / 1000} s") { PileUpMs = tokens[i + StuckTokens] };
+                return new LoopSignal(tokens[i], $"{StuckTokens} tokens in under {StuckWindowMs / 1000} s") { PileUpMs = tokens[i + StuckTokens], TokensPiledUp = true };
             }
         }
 
@@ -80,7 +80,7 @@ internal static class LoopGuard
         if (run.StoppedEarly)
         {
             var at = tokens.Count > 0 ? tokens[^1] : run.Words.Count > 0 ? run.Words[^1].StartMs : 0;
-            return new LoopSignal(at, "the library stopped the decode early");
+            return new LoopSignal(at, "the library stopped the decode early") { TokensPiledUp = true };
         }
 
         return FindRepeatedPhrase([.. run.Words.Where(word => word.Group >= firstSegment)]);
@@ -115,7 +115,11 @@ internal static class LoopGuard
         // The lead keeps the first word whole, without reaching back into the previous segment.
         var previousEnd = stuck > 0 ? segments[stuck - 1].EndMs : startMs;
         var pieceStart = Math.Max(Math.Max(startMs, previousEnd), segmentStart - LeadMs);
-        var pieces = new[] { (First: pieceStart, Last: at), (First: at, Last: segmentEnd) }.Where(piece => piece.Last - piece.First >= MinPieceMs).ToList();
+        // A cut within the lead of the segment's start would leave the second piece without one,
+        // so the segment is transcribed again whole, from the lead on.
+        var pieces = at - segmentStart < LeadMs
+            ? [(First: pieceStart, Last: segmentEnd)]
+            : new[] { (First: pieceStart, Last: at), (First: at, Last: segmentEnd) }.Where(piece => piece.Last - piece.First >= MinPieceMs).ToList();
 
         // A piece that is the whole stretch again would decode the same audio the same way.
         var repairable = depth < MaxDepth && pieces.All(piece => piece.First != startMs || piece.Last != endMs);
@@ -129,9 +133,15 @@ internal static class LoopGuard
                 Transcribe(decode, first, last, depth + 1, output, ref groups, onSignal);
             }
         }
-        else
+        else if (signal.TokensPiledUp)
         {
             Append(run.Words.Where(word => word.Group >= firstSegment && (stuck < 0 || word.Group == stuck) && word.StartMs < at), output, ref groups);
+        }
+        else
+        {
+            // A phrase can really be said over and over, as in a chant or a drill, at a normal
+            // pace. Without a pile-up of tokens, the words stay.
+            Append(run.Words.Where(word => word.Group >= firstSegment && (stuck < 0 || word.Group == stuck)), output, ref groups);
         }
 
         if (stuck >= 0 && stuck + 1 < segments.Count)
@@ -228,4 +238,7 @@ internal sealed record LoopSignal(long AtMs, string Reason)
 {
     /// <summary>Gets a time inside the loop itself, which names the segment that got stuck.</summary>
     public long PileUpMs { get; init; } = AtMs;
+
+    /// <summary>Gets a value indicating whether the decoder piled tokens up, which speech never does, rather than repeating a phrase at a normal pace.</summary>
+    public bool TokensPiledUp { get; init; }
 }

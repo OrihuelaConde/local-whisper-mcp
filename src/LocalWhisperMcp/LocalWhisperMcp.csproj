@@ -61,7 +61,7 @@
     <TranscribeCppVersion>0.4.1</TranscribeCppVersion>
     <TranscribeCppPackages>https://files.pythonhosted.org/packages</TranscribeCppPackages>
     <_TranscribeCppTarget>$(RuntimeIdentifier)</_TranscribeCppTarget>
-    <_TranscribeCppTarget Condition="'$(_TranscribeCppTarget)' == ''">$(NETCoreSdkRuntimeIdentifier)</_TranscribeCppTarget>
+    <_TranscribeCppTarget Condition="'$(_TranscribeCppTarget)' == ''">$(NETCoreSdkPortableRuntimeIdentifier)</_TranscribeCppTarget>
   </PropertyGroup>
   <Choose>
     <When Condition="'$(_TranscribeCppTarget)' == 'win-x64'">
@@ -97,7 +97,7 @@
   </Choose>
   <PropertyGroup>
     <TranscribeCppRid Condition="'$(TranscribeCppWheelUrl)' != '' and '$(TranscribeCppSkip)' != 'true'">$(_TranscribeCppTarget)</TranscribeCppRid>
-    <TranscribeCppCache>$(MSBuildProjectDirectory)\$(BaseIntermediateOutputPath)transcribe-cpp\$(TranscribeCppVersion)\$(TranscribeCppRid)\</TranscribeCppCache>
+    <TranscribeCppCache>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '$(BaseIntermediateOutputPath)', 'transcribe-cpp', '$(TranscribeCppVersion)', '$(TranscribeCppRid)'))</TranscribeCppCache>
   </PropertyGroup>
 
   <!-- An offline build can leave Parakeet out with -p:TranscribeCppSkip=true. -->

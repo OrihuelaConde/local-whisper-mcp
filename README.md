@@ -27,7 +27,8 @@ https://github.com/user-attachments/assets/dc71b178-b60d-457e-8f33-732696671c02
 - Offers a second engine, [Parakeet-ultra](https://huggingface.co/handy-computer/parakeet-ultra-gguf)
   on transcribe.cpp, for 25 European languages. It's several times faster than the default Whisper
   model, above all on a computer without a GPU, and makes fewer errors on long and noisy
-  recordings. Choose it with the model name `parakeet-ultra`.
+  recordings. Choose it with the model name `parakeet-ultra`. Version 1.1.0 and earlier don't
+  have it.
 - Returns plain text, SubRip subtitles (SRT), or JSON segments with timestamps.
 - Skips silence with voice activity detection on clean recordings, which keeps timestamps exact,
   and transcribes everything when background noise could hide quiet speech.
@@ -247,6 +248,10 @@ pwsh packaging/mcpb/pack.ps1 -Rid win-x64 -PublishDir out
 Replace `win-x64` with the runtime identifier of your system: `osx-arm64`, `osx-x64`, `linux-x64`,
 or `linux-arm64`. Native AOT builds only for the system it runs on.
 
+The build downloads transcribe.cpp's libraries for that system from a pinned wheel on PyPI, once
+per version, and checks the wheel's SHA-256. To build without a network connection, add
+`-p:TranscribeCppSkip=true`; that build can't run Parakeet models.
+
 ## Design notes
 
 The measurements behind the server's design are in the repository:
@@ -254,8 +259,11 @@ The measurements behind the server's design are in the repository:
 - [Proof-of-concept results](poc/RESULTS.md): why the server is a C# Native AOT executable with
   Whisper.net, and how the default model, the GPU backend, and the audio decoders were chosen.
 - [Gemma 4 as an alternative engine](poc/GEMMA-RESULTS.md): Gemma 4 E2B, E4B, and 12B compared
-  with Whisper on public test sets with reference transcripts. Whisper stays the only engine: it
-  makes fewer errors, and on computers without a GPU the Whisper `small` model matches Gemma 4.
+  with Whisper on public test sets with reference transcripts. Gemma 4 didn't become an engine:
+  Whisper makes fewer errors, and on computers without a GPU the Whisper `small` model matches it.
+- [Parakeet-ultra and Cohere Transcribe](https://github.com/OrihuelaConde/local-whisper-mcp/blob/poc/transcribe-cpp-evaluation/poc/TRANSCRIBE-CPP-RESULTS.md):
+  the measurements behind the second engine, on short, long, and noisy recordings, and the
+  repetition loops that its guard repairs.
 - [Hints](poc/HINTS-RESULTS.md): what passing the names in a recording as a Whisper prompt does to
   the transcript, and why the list is limited to 120 characters.
 

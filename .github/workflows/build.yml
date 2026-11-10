@@ -90,6 +90,14 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit 1 }
           if (Test-Path (Join-Path $env:LOCAL_WHISPER_MODELS_DIR 'ggml-tiny.bin')) { Write-Error 'delete_models left the model in place.'; exit 1 }
 
+      # A cache hit skips the download, so this checks that the catalog's address still serves the
+      # pinned file, the way a new installation would fetch it.
+      - name: Check the Parakeet model's address
+        run: |
+          $response = Invoke-WebRequest -Method Head -MaximumRedirection 0 -SkipHttpErrorCheck -ErrorAction SilentlyContinue 'https://huggingface.co/handy-computer/parakeet-ultra-gguf/resolve/a1539be1b849ea7463b88343e5277b373d0c4ea9/parakeet-ultra-Q8_0.gguf'
+          $hash = "$($response.Headers['X-Linked-ETag'])".Trim('"')
+          if ([int]$response.StatusCode -ne 302 -or $hash -ne '007a59761e9258779f189df396b50d12b83bb5b79e66df4b955c230d2f2a0a59') { Write-Error "The model's address answered $($response.StatusCode) with hash '$hash'."; exit 1 }
+
       # The key is the model file's SHA-256, so the cache never serves another file under that name.
       - name: Restore the Parakeet model from the cache
         uses: actions/cache@v4

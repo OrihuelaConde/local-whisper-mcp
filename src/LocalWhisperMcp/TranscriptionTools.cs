@@ -60,16 +60,6 @@ internal sealed class TranscriptionTools
             throw new McpException($"'{language}' isn't a language code. Use a code such as en or es, or auto.");
         }
 
-        string? prompt;
-        try
-        {
-            prompt = HintPrompt.Build(hints);
-        }
-        catch (ArgumentException exception)
-        {
-            throw new McpException(exception.Message, exception);
-        }
-
         var modelName = ModelCatalog.Normalize(model) ?? settings.DefaultModel;
         if (!ModelCatalog.IsValidName(modelName))
         {
@@ -77,6 +67,25 @@ internal sealed class TranscriptionTools
         }
 
         var engine = ModelCatalog.GetEngine(modelName);
+
+        // An engine that ignores the hints doesn't reject them either, such as a list over the limit.
+        string? prompt = null;
+        if (hints is { Length: > 0 } && engine != SpeechEngine.Whisper)
+        {
+            logger.LogInformation("{Model} takes no prompt, so the {Count} hints are ignored.", modelName, hints.Length);
+        }
+        else
+        {
+            try
+            {
+                prompt = HintPrompt.Build(hints);
+            }
+            catch (ArgumentException exception)
+            {
+                throw new McpException(exception.Message, exception);
+            }
+        }
+
         if (engine == SpeechEngine.TranscribeCpp && !TranscribeCpp.TranscribeCppLibrary.IsInstalled)
         {
             // Checked before the download, which would fetch 740 MB that this build can't use.
@@ -85,11 +94,7 @@ internal sealed class TranscriptionTools
                 $"Reinstall Local Whisper from the latest release for this system, or use a Whisper model, such as {ServerSettings.DefaultModelName}.");
         }
 
-        if (PromptFor(engine, prompt) is null && prompt is not null)
-        {
-            logger.LogInformation("{Model} takes no prompt, so the {Characters} characters of hints are ignored.", modelName, prompt.Length);
-            prompt = null;
-        }
+        prompt = PromptFor(engine, prompt);
 
         // Decoding first reports a file that can't be read before any model download starts.
         float[] samples;

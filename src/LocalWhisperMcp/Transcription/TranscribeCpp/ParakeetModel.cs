@@ -17,6 +17,9 @@ internal sealed class ParakeetModel : ISpeechModel
     // Shorter audio has no word in it, and the library rejects it as an invalid argument.
     private const int MinSamples = AudioDecoder.SampleRate / 10;
 
+    // The library decodes audio up to this long in one window.
+    private const int LongFormSamples = AudioDecoder.SampleRate * 30;
+
     private readonly ILogger logger;
     private readonly int threads;
     private HashSet<string> languages = [];
@@ -244,8 +247,18 @@ internal sealed class ParakeetModel : ISpeechModel
     {
         var path = TranscribeCppLibrary.Utf8(ModelPath);
         TranscribeCppException? last = null;
-        foreach (var request in requests.Where(Native.transcribe_backend_available))
+        foreach (var request in requests)
         {
+            if (!Native.transcribe_backend_available(request))
+            {
+                if (request != Native.BackendCpu)
+                {
+                    logger.LogWarning("transcribe.cpp has no {Backend} device on this computer; trying the next backend.", request == Native.BackendVulkan ? "Vulkan" : "GPU");
+                }
+
+                continue;
+            }
+
             Native.ModelLoadParams parameters;
             Native.transcribe_model_load_params_init(&parameters);
             parameters.Backend = request;
@@ -327,11 +340,12 @@ internal sealed class ParakeetModel : ISpeechModel
             }
         }
 
-        // An early stop in a recording of several segments leaves rows whose times the guard
-        // can't place with certainty, so it fails instead of cutting at a wrong time.
-        if (stoppedEarly && segments.Count > 1)
+        // On audio longer than one window, an early stop returns before the library joins the
+        // windows, so the rows hold only the last window, with times from its own start. The guard
+        // can't place those times, so it fails instead of cutting at a wrong one.
+        if (stoppedEarly && last - first > LongFormSamples)
         {
-            throw new TranscribeCppException($"transcribe.cpp stopped the decode early ({Native.Describe(status)}) in a recording it cut into {segments.Count} segments.", status);
+            throw new TranscribeCppException($"transcribe.cpp stopped the decode early ({Native.Describe(status)}) in audio longer than {LongFormSamples / AudioDecoder.SampleRate} s.", status);
         }
 
         return new DecodeRun(words, tokens, segments, stoppedEarly);

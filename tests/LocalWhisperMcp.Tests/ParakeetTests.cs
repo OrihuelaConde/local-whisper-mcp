@@ -253,10 +253,37 @@ public sealed class ParakeetTests
         var words = LoopGuard.Transcribe(Decode, 20_000, (signal, repaired) => signals.Add(signal));
 
         Assert.Equal(10_500, Assert.Single(signals).PileUpMs);
-        Assert.Equal(["bien.", "parte2", "parte3"], words.Select(word => word.Text));
+
+        // The cut clamps to the stuck segment's start, so the segment is decoded again whole, with its lead.
+        Assert.Equal(["bien.", "parte2"], words.Select(word => word.Text));
+        Assert.Equal((9_700L, 20_000L), calls[1]);
 
         // The repair stays inside the stuck segment: it starts after the previous one ends.
         Assert.All(calls.Skip(1), call => Assert.True(call.Start >= 9_500, $"A repair started at {call.Start} ms."));
+    }
+
+    [Fact]
+    public void A_phrase_said_over_and_over_at_a_normal_pace_keeps_its_words()
+    {
+        // A chant: the phrase repeats ten times, but the tokens come at a normal pace.
+        var words = new List<TimedWord>();
+        for (var i = 0; i < 10; i++)
+        {
+            words.AddRange([Word("vamos", i * 1_500, (i * 1_500) + 400), Word("a", (i * 1_500) + 400, (i * 1_500) + 600), Word("ganar,", (i * 1_500) + 600, (i * 1_500) + 1_200)]);
+        }
+
+        words.Add(Word("fin.", 16_000, 16_500));
+        List<long> tokens = [.. words.Select(word => word.StartMs)];
+        var outcomes = new List<bool>();
+
+        var result = LoopGuard.Transcribe(
+            (start, end) => new DecodeRun([.. words.Select(word => word with { StartMs = word.StartMs - start, EndMs = word.EndMs - start })], [.. tokens.Select(token => token - start)], [new TimedSpan(0, end - start)], false),
+            17_000,
+            (signal, repaired) => outcomes.Add(repaired));
+
+        Assert.Equal([false], outcomes);
+        Assert.Equal(words.Count, result.Count);
+        Assert.Equal("fin.", result[^1].Text);
     }
 
     [Fact]
